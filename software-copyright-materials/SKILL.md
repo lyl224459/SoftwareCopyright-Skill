@@ -7,8 +7,17 @@ description: >
   The workflow analyzes the imported project, extracts real source code, creates Markdown
   drafts for user confirmation, then uses bundled DOCX tooling to produce final
   Word documents and TXT.
+user-invocable: true
+compatibility: >
+  Requires Python 3.10+ with python-docx (pip install python-docx).
+  Optional: .NET SDK 8.0+ for full OpenXML DOCX validation (run vendor/docx-toolkit/scripts/setup.sh).
+allowed-tools: >
+  Bash, Read, Write, Edit, Glob, Grep, WebSearch, WebFetch
 metadata:
   short-description: 生成软著申请资料 Word/TXT
+  author: Fokkyp
+  version: "1.0"
+  repository: https://github.com/Fokkyp/SoftwareCopyright-Skill
 ---
 
 # 软著申请资料生成
@@ -43,7 +52,7 @@ metadata:
 禁止使用“用户未选择则默认继续”的逻辑。用户回复确认后，先用确认脚本记录对应门禁，再进入下一阶段：
 
 ```bash
-python3 scripts/confirm_stage.py --workdir 软件著作权申请资料 --stage <阶段名> --note "<用户确认内容>"
+python3 ${CLAUDE_SKILL_DIR}/scripts/confirm_stage.py --workdir 软件著作权申请资料 --stage <阶段名> --note "<用户确认内容>"
 ```
 
 必须停住的门禁：
@@ -63,7 +72,7 @@ python3 scripts/confirm_stage.py --workdir 软件著作权申请资料 --stage <
 一开始先在当前工作目录创建输出目录并检查运行能力：
 
 ```bash
-python3 scripts/check_environment.py \
+python3 ${CLAUDE_SKILL_DIR}/scripts/check_environment.py \
   --out-dir 软件著作权申请资料
 ```
 
@@ -81,14 +90,14 @@ python3 scripts/check_environment.py \
 
 用户选择：
 
-- 如果用户愿意安装完整环境，按 `vendor/docx-toolkit/scripts/setup.sh` 的要求安装依赖，再继续。完整环境生成和校验更规范。
+- 如果用户愿意安装完整环境，按 `${CLAUDE_SKILL_DIR}/vendor/docx-toolkit/scripts/setup.sh` 的要求安装依赖，再继续。完整环境生成和校验更规范。
 - 如果用户不安装，继续使用兜底方案生成 Markdown、TXT 和基础 DOCX。
 - 如果完整 DOCX 环境缺失，必须停止并等待用户选择；不得自动继续。
 
 用户回复后记录门禁：
 
 ```bash
-python3 scripts/confirm_stage.py \
+python3 ${CLAUDE_SKILL_DIR}/scripts/confirm_stage.py \
   --workdir 软件著作权申请资料 \
   --stage environment \
   --note "<用户选择>"
@@ -107,7 +116,7 @@ python3 scripts/confirm_stage.py \
 运行：
 
 ```bash
-python3 scripts/analyze_project.py \
+python3 ${CLAUDE_SKILL_DIR}/scripts/analyze_project.py \
   --project <项目目录> \
   --out 软件著作权申请资料/analysis/project.json
 ```
@@ -125,7 +134,7 @@ python3 scripts/analyze_project.py \
 在写申请表和操作手册前，先让脚本收集项目证据：
 
 ```bash
-python3 scripts/generate_business_context.py \
+python3 ${CLAUDE_SKILL_DIR}/scripts/generate_business_context.py \
   --project <项目目录> \
   --analysis 软件著作权申请资料/analysis/project.json \
   --software-name "<软件全称>" \
@@ -168,7 +177,7 @@ python3 scripts/generate_business_context.py \
 然后运行：
 
 ```bash
-python3 scripts/generate_business_context.py \
+python3 ${CLAUDE_SKILL_DIR}/scripts/generate_business_context.py \
   --project <项目目录> \
   --analysis 软件著作权申请资料/analysis/project.json \
   --software-name "<软件全称>" \
@@ -198,7 +207,7 @@ python3 scripts/generate_business_context.py \
 生成 `业务理解.md/json` 后必须停止，等待用户确认或修改。业务理解确认前，不得生成申请表和操作手册。如果业务理解仍不充分，先请用户补充产品说明。用户确认后运行：
 
 ```bash
-python3 scripts/confirm_stage.py \
+python3 ${CLAUDE_SKILL_DIR}/scripts/confirm_stage.py \
   --workdir 软件著作权申请资料 \
   --stage business \
   --note "<用户确认内容>"
@@ -240,7 +249,7 @@ python3 scripts/confirm_stage.py \
 生成代码材料前，先运行候选文件分析：
 
 ```bash
-python3 scripts/propose_code_selection.py \
+python3 ${CLAUDE_SKILL_DIR}/scripts/propose_code_selection.py \
   --project <项目目录> \
   --analysis 软件著作权申请资料/analysis/project.json \
   --out-dir 软件著作权申请资料/草稿
@@ -261,7 +270,7 @@ python3 scripts/propose_code_selection.py \
 模型选择通常优先考虑前端入口、页面、核心组件、业务交互、数据请求、状态处理等能给审核员看懂软件功能的代码；如果相关前端代码不足 60 页，再补充后端服务、业务处理、配置等相关源码。补充文件同样必须写入 `代码文件选择.json` 并由用户确认。不要默认抽取全量代码库。用户确认并记录 `code-selection` 门禁后，代码抽取只读取 `代码文件选择.json` 中选中的文件和行段。用户确认后运行：
 
 ```bash
-python3 scripts/confirm_stage.py \
+python3 ${CLAUDE_SKILL_DIR}/scripts/confirm_stage.py \
   --workdir 软件著作权申请资料 \
   --stage code-selection \
   --note "<用户确认内容>"
@@ -272,7 +281,7 @@ python3 scripts/confirm_stage.py \
 运行代码材料抽取：
 
 ```bash
-python3 scripts/extract_code_material.py \
+python3 ${CLAUDE_SKILL_DIR}/scripts/extract_code_material.py \
   --project <项目目录> \
   --analysis 软件著作权申请资料/analysis/project.json \
   --selection 软件著作权申请资料/草稿/代码文件选择.json \
@@ -293,7 +302,7 @@ python3 scripts/extract_code_material.py \
 生成申请表信息草稿：
 
 ```bash
-python3 scripts/generate_application_info.py \
+python3 ${CLAUDE_SKILL_DIR}/scripts/generate_application_info.py \
   --analysis 软件著作权申请资料/analysis/project.json \
   --code-manifest 软件著作权申请资料/草稿/代码提取清单.json \
   --business-context 软件著作权申请资料/草稿/业务理解.json \
@@ -305,7 +314,7 @@ python3 scripts/generate_application_info.py \
 生成后必须停止，让用户检查并补全 `草稿/申请表信息.md`。字段补全并确认后运行：
 
 ```bash
-python3 scripts/confirm_stage.py \
+python3 ${CLAUDE_SKILL_DIR}/scripts/confirm_stage.py \
   --workdir 软件著作权申请资料 \
   --stage application-fields \
   --note "<用户确认内容>"
@@ -314,7 +323,7 @@ python3 scripts/confirm_stage.py \
 生成操作手册草稿：
 
 ```bash
-python3 scripts/generate_manual_draft.py \
+python3 ${CLAUDE_SKILL_DIR}/scripts/generate_manual_draft.py \
   --analysis 软件著作权申请资料/analysis/project.json \
   --business-context 软件著作权申请资料/草稿/业务理解.json \
   --software-name "<软件全称>" \
@@ -346,7 +355,7 @@ python3 scripts/generate_manual_draft.py \
 用户选择后，先记录门禁：
 
 ```bash
-python3 scripts/confirm_stage.py \
+python3 ${CLAUDE_SKILL_DIR}/scripts/confirm_stage.py \
   --workdir 软件著作权申请资料 \
   --stage screenshot-method \
   --method <chrome-devtools|computer-use|user-supplied|skip> \
@@ -361,7 +370,7 @@ python3 scripts/confirm_stage.py \
 - 选择跳过截图：不运行截图工具，继续保留操作手册中的可见截图预留文字；在生成报告中说明用户选择暂不截图，正式操作手册已预留截图位置。
 
 ```bash
-python3 scripts/capture_screenshots.py \
+python3 ${CLAUDE_SKILL_DIR}/scripts/capture_screenshots.py \
   --manual-dir 软件著作权申请资料/用户截图 \
   --out-dir 软件著作权申请资料/截图
 ```
@@ -387,7 +396,7 @@ python3 scripts/capture_screenshots.py \
 用户确认后，必须记录 `markdown` 门禁；未记录时不得生成正式 Word/TXT。
 
 ```bash
-python3 scripts/confirm_stage.py \
+python3 ${CLAUDE_SKILL_DIR}/scripts/confirm_stage.py \
   --workdir 软件著作权申请资料 \
   --stage markdown \
   --note "<用户确认内容>"
@@ -398,7 +407,7 @@ python3 scripts/confirm_stage.py \
 用户确认后运行：
 
 ```bash
-python3 scripts/build_docx_from_md.py \
+python3 ${CLAUDE_SKILL_DIR}/scripts/build_docx_from_md.py \
   --workdir 软件著作权申请资料 \
   --software-name "<软件全称>" \
   --version "<版本号>"
@@ -429,13 +438,13 @@ python3 scripts/build_docx_from_md.py \
 可用命令：
 
 ```bash
-python3 -m py_compile scripts/*.py
-bash vendor/docx-toolkit/scripts/docx_preview.sh <生成的docx>
+python3 -m py_compile ${CLAUDE_SKILL_DIR}/scripts/*.py
+bash ${CLAUDE_SKILL_DIR}/vendor/docx-toolkit/scripts/docx_preview.sh <生成的docx>
 ```
 
-完整 DOCX 环境检查和安装必须直接恢复/构建 `vendor/docx-toolkit/scripts/dotnet/DocxToolkit.Cli/DocxToolkit.Cli.csproj`，不要对 `vendor/docx-toolkit/scripts/dotnet` 目录或 `.slnx` 文件执行隐式 restore/build。
+完整 DOCX 环境检查和安装必须直接恢复/构建 `${CLAUDE_SKILL_DIR}/vendor/docx-toolkit/scripts/dotnet/DocxToolkit.Cli/DocxToolkit.Cli.csproj`，不要对 `vendor/docx-toolkit/scripts/dotnet` 目录或 `.slnx` 文件执行隐式 restore/build。
 
-如果 `环境检查.md` 或 `vendor/docx-toolkit/scripts/env_check.sh` 显示 `.NET SDK` 缺失，说明完整 DOCX OpenXML 校验环境未就绪。用户明确选择不安装并记录 `environment` 门禁后，继续生成 Markdown、TXT 和基础 DOCX，并在报告中说明当前使用兜底路径。
+如果 `环境检查.md` 或 `${CLAUDE_SKILL_DIR}/vendor/docx-toolkit/scripts/env_check.sh` 显示 `.NET SDK` 缺失，说明完整 DOCX OpenXML 校验环境未就绪。用户明确选择不安装并记录 `environment` 门禁后，继续生成 Markdown、TXT 和基础 DOCX，并在报告中说明当前使用兜底路径。
 
 ## 何时询问用户
 
