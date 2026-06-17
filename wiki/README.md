@@ -1,19 +1,17 @@
 # GitHub Wiki
 
-这个目录包含 GitHub Wiki 的源文件。要发布到 GitHub Wiki：
+这个目录包含 GitHub Wiki 的源文件。
+
+## 自动同步
+
+推送 `wiki/` 目录的改动到 main 分支后，[wiki-sync](../.github/workflows/wiki-sync.yml) workflow 会自动将文件同步到 GitHub Wiki 仓库。
+
+## 手动同步
+
+如需手动同步：
 
 ```bash
-# 克隆 wiki 仓库
 git clone https://github.com/lyl224459/SoftwareCopyright-Skill.wiki.git wiki-repo
-
-# 复制 wiki 源文件
 cp wiki/*.md wiki-repo/
-
-# 提交并推送
-cd wiki-repo
-git add .
-git commit -m "Update wiki"
-git push
+cd wiki-repo && git add . && git commit -m "Update wiki" && git push
 ```
-
-GitHub Wiki 是独立于主仓库的 Git 仓库，使用 `.wiki.git` 后缀。

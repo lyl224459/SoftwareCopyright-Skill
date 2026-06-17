@@ -1,0 +1,35 @@
+name: Sync Wiki
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'wiki/**'
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Sync wiki to wiki repo
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+          git clone https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.wiki.git /tmp/wiki-repo
+
+          cp wiki/*.md /tmp/wiki-repo/
+
+          cd /tmp/wiki-repo
+          if [ -n "$(git status --porcelain)" ]; then
+            git add -A
+            git commit -m "Auto-sync wiki from ${{ github.sha }}"
+            git push
+            echo "Wiki synced"
+          else
+            echo "No wiki changes"
+          fi
