@@ -6,6 +6,9 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue)](https://www.python.org/)
+[![CI](https://github.com/lyl224459/SoftwareCopyright-Skill/actions/workflows/ci.yml/badge.svg)](https://github.com/lyl224459/SoftwareCopyright-Skill/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/lyl224459/SoftwareCopyright-Skill?include_prereleases)](https://github.com/lyl224459/SoftwareCopyright-Skill/releases)
+[![Wiki](https://img.shields.io/badge/Wiki-在线文档-brightgreen)](https://github.com/lyl224459/SoftwareCopyright-Skill/wiki)
 
 ---
 
@@ -42,6 +45,21 @@ claude --plugin-dir ./SoftwareCopyright-Skill
 ```
 
 材料生成到 `软件著作权申请资料/正式资料/`，确认后可导出 PDF 上传官网。
+
+### 使用 Release 包（无需 clone 仓库）
+
+每次 [Release](https://github.com/lyl224459/SoftwareCopyright-Skill/releases) 自动打包为 `tar.gz` 和 `zip`：
+
+```bash
+# 下载指定版本的 Release 包（替换 v1.2 为最新版本）
+wget https://github.com/lyl224459/SoftwareCopyright-Skill/releases/download/v1.2/software-copyright-materials-v1.2.tar.gz
+tar xzf software-copyright-materials-v1.2.tar.gz
+
+# Claude Code 直接加载
+claude --plugin-dir ./software-copyright-materials-v1.2
+```
+
+Release 包含 `software-copyright-materials/`、`skills/`、`docs/`、`plugin.json` 和 `README`，解压即用。
 
 ## 文档
 
