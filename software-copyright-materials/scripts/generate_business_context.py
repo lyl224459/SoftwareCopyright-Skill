@@ -193,7 +193,7 @@ def write_model_template(path: Path, evidence: dict[str, Any]) -> None:
         ],
         "system_requirements": [
             {"item": "操作系统", "minimum": "按项目实际填写", "recommended": "按项目实际填写"},
-            {"item": "浏览器或客户端", "minimum": "按项目实际填写", "recommended": "按项目实际填写"},
+            {"item": "运行环境", "minimum": "按项目实际填写（Web项目填浏览器，桌面应用填操作系统版本，CLI填终端环境，移动端填操作系统版本）", "recommended": "按项目实际填写"},
         ],
         "faq": [
             {"question": "按当前软件真实使用场景填写常见问题", "answer": "给出面向普通用户的处理方法。"}
@@ -369,7 +369,7 @@ def write_context_md(path: Path, context: dict[str, Any]) -> None:
             f"- 开发目的：{context['application_purpose']}",
             f"- 软件的主要功能：{context['main_functions']}",
             f"- 技术特点：{context['technical_characteristics']}",
-            f"- 软件的技术特点选项：{context['software_technical_option']}",
+            f"- 软件的技术特点（标签）：{context['software_technical_option']}",
             f"- 软件分类：{context['software_category']}",
             "",
             "## 证据来源",

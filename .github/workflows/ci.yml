@@ -1,0 +1,79 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.10', '3.11', '3.12', '3.13']
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install python-docx
+
+      - name: Syntax check all scripts
+        run: |
+          python -m py_compile software-copyright-materials/scripts/common.py
+          python -m py_compile software-copyright-materials/scripts/analyze_project.py
+          python -m py_compile software-copyright-materials/scripts/check_environment.py
+          python -m py_compile software-copyright-materials/scripts/confirm_stage.py
+          python -m py_compile software-copyright-materials/scripts/propose_code_selection.py
+          python -m py_compile software-copyright-materials/scripts/extract_code_material.py
+          python -m py_compile software-copyright-materials/scripts/generate_business_context.py
+          python -m py_compile software-copyright-materials/scripts/generate_application_info.py
+          python -m py_compile software-copyright-materials/scripts/generate_manual_draft.py
+          python -m py_compile software-copyright-materials/scripts/build_docx_from_md.py
+          python -m py_compile software-copyright-materials/scripts/capture_screenshots.py
+          echo "All scripts passed syntax check"
+
+      - name: Functional test - web project detection
+        run: |
+          mkdir -p /tmp/test-web
+          echo '{"name":"test-app","version":"1.0.0","dependencies":{"react":"^18","next":"^14"}}' > /tmp/test-web/package.json
+          mkdir -p /tmp/test-web/src/pages
+          echo "export default function Home() { return null; }" > /tmp/test-web/src/pages/index.tsx
+          python software-copyright-materials/scripts/analyze_project.py \
+            --project /tmp/test-web \
+            --out /tmp/analysis-web.json
+          python -c "
+          import json
+          d = json.load(open('/tmp/analysis-web.json'))
+          assert d['project_type'] in ('web_frontend', 'web_fullstack'), f'Expected web project, got {d[\"project_type\"]}'
+          print(f'Web project detected: {d[\"project_type\"]}')
+          "
+
+      - name: Functional test - backend project detection
+        run: |
+          mkdir -p /tmp/test-backend
+          cat > /tmp/test-backend/pyproject.toml << 'EOF'
+          [project]
+          name = "test-api"
+          version = "1.0.0"
+          dependencies = ["fastapi", "uvicorn"]
+          EOF
+          mkdir -p /tmp/test-backend/app
+          echo 'from fastapi import FastAPI; app = FastAPI()' > /tmp/test-backend/app/main.py
+          python software-copyright-materials/scripts/analyze_project.py \
+            --project /tmp/test-backend \
+            --out /tmp/analysis-backend.json
+          python -c "
+          import json
+          d = json.load(open('/tmp/analysis-backend.json'))
+          assert d['project_type'] == 'web_backend', f'Expected web_backend, got {d[\"project_type\"]}'
+          print(f'Backend project detected: {d[\"project_type\"]}')
+          "

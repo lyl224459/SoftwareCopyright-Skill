@@ -11,13 +11,14 @@ user-invocable: true
 compatibility: >
   Requires Python 3.10+ with python-docx (pip install python-docx).
   Optional: .NET SDK 8.0+ for full OpenXML DOCX validation (run vendor/docx-toolkit/scripts/setup.sh).
+  Supports web frontend, web backend, full-stack, CLI tools, desktop apps, mobile apps, libraries and embedded projects.
 allowed-tools: >
   Bash, Read, Write, Edit, Glob, Grep, WebSearch, WebFetch
 metadata:
   short-description: 生成软著申请资料 Word/TXT
-  author: Fokkyp
-  version: "1.1"
-  repository: https://github.com/Fokkyp/SoftwareCopyright-Skill
+  author: Fokkyp (forked by lyl224459)
+  version: "1.2"
+  repository: https://github.com/lyl224459/SoftwareCopyright-Skill
 ---
 
 # 软著申请资料生成
@@ -34,7 +35,7 @@ metadata:
 - 代码材料必须来自真实项目源码，禁止 AI 编造代码。
 - 写申请表和操作手册前，必须先形成模型研判后的 `草稿/业务理解.md/json`，理解软件业务、行业、目标用户、核心价值和操作流程。
 - 脚本只能收集项目证据、校验字段和生成文件；行业判断、功能抽取、代码抽取选择、操作手册结构必须由模型阅读项目后决定，不得依赖脚本关键字表或固定范本。
-- 优先抽取前端代码：入口、路由、页面、核心组件、接口封装、状态管理、工具函数。
+- Web 前端项目优先抽取入口、路由、页面、核心组件、接口封装、状态管理、工具函数；后端项目优先抽取入口、控制器、服务、模型和数据访问层；桌面/移动/CLI 项目根据项目类型选择对应入口和核心模块。
 - 生成代码材料前，必须先生成代码文件候选清单；模型理解项目后填写抽取文件和选择理由，再让用户确认或修改。
 - 代码优先抽取模型和用户确认的、最能体现软件真实功能和运行逻辑的源码；不足 60 页时，从其他相关源码文件补充到 60 页；候选源码仍不足 60 页时，才生成全部代码文档。
 - 操作手册成稿应像真实软件随附的操作说明，而不是研发说明、功能清单或 AI 生成的汇总文。
@@ -260,8 +261,10 @@ python3 ${CLAUDE_SKILL_DIR}/scripts/confirm_stage.py \
 - 开发目的（≤50字符）
 - 面向领域 / 行业（≤50字符）
 - 软件的主要功能（500~1300字符）
-- 软件的技术特点（多选标签 + 文本描述≤100字符；标签：APP/游戏软件/教育软件/金融软件/医疗软件/地理信息软件/云计算软件/信息安全软件/大数据软件/人工智能软件/VR软件/5G软件/小程序/物联网软件/智慧城市软件，都不符合时可不选）
+- 软件的技术特点（多选标签 + 文本描述≤100字符；标签：APP/游戏软件/教育软件/金融软件/医疗软件/地理信息软件/云计算软件/信息安全软件/大数据软件/人工智能软件/VR软件/5G软件/小程序/物联网软件/智慧城市软件，都不符合时可不选；文本描述简述技术架构和关键技术）
 - 页数（代码鉴别材料实际页数）
+
+申请表草稿将技术特点拆分为"软件的技术特点（标签）"和"软件的技术特点（描述）"两个字段输出，方便官网填报时分别选择和填写。
 
 项目可推断字段可以先给建议值；硬件/系统环境必须允许用户选择建议值或手动填写。字段口径必须区分清楚：
 
@@ -500,3 +503,28 @@ bash ${CLAUDE_SKILL_DIR}/vendor/docx-toolkit/scripts/docx_preview.sh <生成的d
 - 代码文件候选清单生成后，需要用户确认或修改 `代码文件选择.json`。
 - 操作手册截图前，需要用户在 Chrome DevTools MCP、Codex Computer Use、用户自行截图三种方式中选择一种；选择后再检查对应工具是否可用。
 - 用户是否确认 Markdown 草稿并进入 Word 生成。
+
+## 补充申请材料
+
+除本 skill 自动生成的代码材料、操作手册和申请表信息外，软著申请通常还需准备以下补充材料：
+
+### 签章页
+
+签章页是软著申请的必备页，须包含软件名称、版本号、著作权人名称、申请人签章和日期。签章页上的软件名称和版本号必须与申请表信息一致。
+
+本 skill 不自动生成签章页 DOCX，原因：签章页须由申请人亲自签名或盖章，格式和内容应以中国版权保护中心官网当前版本为准。参考说明见 `references/signature_page_template.md`。
+
+### 软件合作开发协议书
+
+当申请表"开发方式"选择"合作开发"时，需提交合作开发协议书，明确各方权利和义务、著作权归属方式。
+
+本 skill 不自动生成合作协议书 DOCX，原因：协议内容涉及各方真实身份、权利分配和法律条款，须由合作各方协商一致并签字盖章。参考说明见 `references/cooperation_agreement_guide.md`。
+
+### 其他可能需要的材料
+
+- 申请人身份证明（自然人身份证复印件 / 法人营业执照复印件）
+- 权属证明文件（如涉及权利转移或继承）
+- 委托书（如通过代理机构提交）
+- 其他官网要求的补充材料
+
+以上材料请根据中国版权保护中心官网当前要求准备。申请入口和法规依据见 README.md 中的"官网填报和提交"章节。

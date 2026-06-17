@@ -42,8 +42,27 @@ FIELD_ORDER = [
     "开发目的",
     "面向领域 / 行业",
     "软件的主要功能",
-    "软件的技术特点",
+    "软件的技术特点（标签）",
+    "软件的技术特点（描述）",
     "页数",
+]
+
+SOFTWARE_TECHNICAL_TAGS = [
+    "APP",
+    "游戏软件",
+    "教育软件",
+    "金融软件",
+    "医疗软件",
+    "地理信息软件",
+    "云计算软件",
+    "信息安全软件",
+    "大数据软件",
+    "人工智能软件",
+    "VR软件",
+    "5G软件",
+    "小程序",
+    "物联网软件",
+    "智慧城市软件",
 ]
 
 
@@ -146,6 +165,30 @@ def summarize_business_features(software_name: str, business: dict[str, Any] | N
     return trim_effective(result)
 
 
+# Project-type-aware opening templates for summarize_features fallback
+_FEATURE_OPENING = {
+    "web_frontend": "{name}围绕{modules}等页面组织业务操作。用户通过浏览器访问系统，在页面中完成信息查看、数据录入和结果确认。",
+    "web_backend": "{name}是一套后端服务软件，通过接口对外提供{modules}等数据服务和业务处理能力。客户端或前端系统通过调用接口完成数据交互和业务流程。",
+    "web_fullstack": "{name}采用前后端分离架构，前端围绕{modules}等页面组织操作，后端通过接口提供数据服务和业务处理能力。",
+    "cli": "{name}是一套命令行工具软件。用户在终端中输入命令和参数，完成{modules}等操作。系统处理完成后返回结果或状态信息。",
+    "desktop": "{name}是一套桌面应用软件。用户通过窗口界面中的菜单、按钮和输入区域，完成{modules}等操作。",
+    "mobile": "{name}是一套移动应用软件。用户在手机或平板屏幕上通过触控操作完成{modules}等功能。",
+    "library": "{name}是一套软件开发库，为开发者提供{modules}等编程接口和工具函数，用于在应用系统中集成相关能力。",
+    "embedded": "{name}是一套嵌入式软件，运行于目标硬件设备上，实现{modules}等核心功能。",
+}
+
+_FEATURE_CLOSING = {
+    "web_frontend": "各功能模块通过统一的操作入口串联，用户可在不同页面间切换处理相关业务。",
+    "web_backend": "各接口模块通过统一的请求路径和数据结构串联，调用方可按接口规范获取数据服务和业务处理结果。",
+    "web_fullstack": "前后端模块通过接口协议串联，用户操作和系统服务在统一的业务流程中协同运行。",
+    "cli": "各命令和子命令按功能分组组织，用户可通过帮助信息查看参数说明和用法示例。",
+    "desktop": "各功能窗口和面板通过菜单栏、工具栏和快捷键组织，用户可在不同界面区域间切换操作。",
+    "mobile": "各功能模块通过底部导航或侧栏菜单组织，用户可在不同屏幕间切换操作。",
+    "library": "各模块按命名空间和包结构组织，开发者可通过导入对应模块调用所需功能。",
+    "embedded": "各功能模块按硬件接口和控制逻辑组织，设备上电后按预设流程运行。",
+}
+
+
 def summarize_features(analysis: dict[str, Any], software_name: str, business: dict[str, Any] | None = None) -> str:
     """Generate a substantive main-function description for the application form.
 
@@ -158,9 +201,14 @@ def summarize_features(analysis: dict[str, Any], software_name: str, business: d
     if business_summary:
         return business_summary
 
+    project_type = str(analysis.get("project_type") or "unknown")
     features = analysis.get("feature_candidates") or []
     readme = (analysis.get("readme_excerpt") or "").strip()
     routes = analysis.get("routes") or []
+    categorized = (analysis.get("source") or {}).get("categorized_files") or {}
+    page_files = categorized.get("page") or []
+    entry_files = categorized.get("entry") or []
+    api_files = categorized.get("api") or []
 
     readable_features = []
     for feature in features:
@@ -172,59 +220,64 @@ def summarize_features(analysis: dict[str, Any], software_name: str, business: d
 
     parts: list[str] = []
 
-    # Opening overview paragraph
-    feature_list = "、".join(readable_features[:12]) if readable_features else "信息展示、业务处理、数据管理和系统交互"
-    parts.append(
-        f"{software_name}是一套面向用户业务场景的综合软件系统，"
-        f"主要提供{feature_list}等核心功能模块。"
-        f"系统通过清晰的操作界面和合理的业务流程设计，帮助用户高效完成日常工作和业务协作。"
-    )
+    # Opening: use project-type-aware template
+    feature_list = "、".join(readable_features[:8]) if readable_features else ""
+    route_display = [r.strip("/") for r in routes[:8] if r != "/" and not r.startswith("/:") and len(r) < 40]
+    route_names = [r.split("/")[-1].replace("-", " ").replace("_", " ") for r in route_display]
+    module_names = "、".join(dict.fromkeys(route_names)[:6]) if route_display else (feature_list or "数据处理、业务管理和系统交互")
 
-    # Module-by-module breakdown
+    opening_template = _FEATURE_OPENING.get(project_type, _FEATURE_OPENING["web_frontend"])
+    parts.append(opening_template.format(name=software_name, modules=module_names))
+
+    # Module descriptions from actual files
     detail_parts: list[str] = []
-    for name in readable_features[:8]:
-        skip = {"软件登录", "用户注册", "用户认证", "首页", "数据看板", "系统设置"}
-        if name in skip:
-            continue
-        detail_parts.append(f"{name}模块支持用户进行相关数据的查看、录入和管理操作，提供完整的业务处理能力和结果反馈。")
+    is_web = project_type in ("web_frontend", "web_fullstack", "unknown")
+    is_backend = project_type in ("web_backend", "web_fullstack")
 
+    if is_web and page_files:
+        for p in page_files[:6]:
+            page_name = Path(p).stem.replace("-", " ").replace("_", " ")
+            if page_name.lower() in {"index", "page", "layout", "loading", "error", "not-found"}:
+                continue
+            detail_parts.append(f"{page_name}页面用于对应业务的查看和处理，用户可在该页面完成相关操作并查看结果。")
+    if is_backend and api_files:
+        for p in api_files[:6]:
+            api_name = Path(p).stem.replace("-", " ").replace("_", " ")
+            detail_parts.append(f"{api_name}接口提供对应的数据服务和业务处理能力，调用方可按接口规范获取处理结果。")
+    if not detail_parts and entry_files:
+        for p in entry_files[:3]:
+            entry_name = Path(p).stem.replace("-", " ").replace("_", " ")
+            detail_parts.append(f"用户从{entry_name}入口进入系统后，可按引导完成业务操作。")
+    if not detail_parts and route_display:
+        for r in route_display[:5]:
+            label = r.replace("-", " ").replace("_", " ").strip("/")
+            detail_parts.append(f"用户通过{label}进行对应业务处理，提交后系统保存数据并反馈结果。")
     if not detail_parts:
-        route_display = [r.strip("/") for r in routes[:6] if r != "/" and not r.startswith("/:")]
-        if route_display:
-            for route_name in route_display[:6]:
-                label = route_name.replace("-", " ").replace("_", " ").title()
-                detail_parts.append(f"{label}模块支持用户进行相关数据的查看、录入和管理操作，提供完整的业务处理能力和结果反馈。")
-        else:
-            detail_parts.append("用户可通过系统界面完成数据查询、信息录入、业务处理和结果导出等操作。")
-            detail_parts.append("系统支持多角色用户的协同工作，不同权限用户可访问相应的功能模块。")
-            detail_parts.append("系统提供数据持久化存储和历史记录追溯能力，保障业务数据的完整性和可审计性。")
+        detail_parts = ["用户可在系统中完成数据录入、查询、修改和结果查看等基本操作。"]
 
-    # Limit detail parts to avoid exceeding max length
-    combined = "".join(detail_parts)
-    if len(combined) + len("".join(parts)) > MAX_MAIN_FUNCTION_CHARS:
-        while detail_parts and len("".join(detail_parts)) + len("".join(parts)) > MAX_MAIN_FUNCTION_CHARS:
-            detail_parts.pop()
+    while detail_parts and effective_len("".join(parts) + "".join(detail_parts)) > MAX_MAIN_FUNCTION_CHARS:
+        detail_parts.pop()
 
     parts.extend(detail_parts)
 
-    # Closing paragraph
+    # Closing
+    closing_template = _FEATURE_CLOSING.get(project_type, _FEATURE_CLOSING["web_frontend"])
     if readme:
-        first_line = readme.splitlines()[0][:80]
-        parts.append(f"系统核心业务围绕{first_line}展开，覆盖从信息采集到结果呈现的完整操作链路。")
+        first_sentence = readme.split("。")[0][:100].strip()
+        if first_sentence and len(first_sentence) > 10:
+            parts.append(f"系统围绕{first_sentence}。{closing_template}")
+        else:
+            parts.append(closing_template)
+    else:
+        parts.append(closing_template)
 
     result = "".join(parts)
 
     while effective_len(result) < MIN_MAIN_FUNCTION_CHARS:
-        padding = (
-            "此外，系统还提供了配套的数据管理、用户操作记录、状态跟踪和系统配置等辅助功能模块，"
-            "各个功能模块之间通过统一的界面布局和操作规范协同运行，用户可以在不同模块间灵活切换和处理跨模块的业务流程。"
-            "系统整体设计注重业务完整性和操作连续性，能够满足用户日常工作中对信息处理和业务管理的核心需求。"
-            "系统界面设计遵循清晰直观的原则，主要操作入口集中展示，用户无需复杂培训即可上手使用。"
-            "系统的数据管理能力包括数据的录入、存储、查询、修改和删除等基本操作，同时支持数据批量处理和导入导出功能。"
-            "在业务处理方面，系统支持多步骤业务流程的串联执行，各环节之间数据自动流转，减少用户重复录入。"
-            "系统还提供了灵活的配置选项，管理员可以根据实际业务需求调整系统参数和功能开关。"
+        result += (
+            "系统保存用户操作记录和业务数据，用户后续可继续查看、修改或导出相关内容。"
+            "操作过程中，系统会根据输入规则给出提示，帮助用户正确完成各项操作。"
         )
-        result += padding
 
     return trim_effective(result)
 
@@ -234,25 +287,95 @@ def humanize_feature(name: str) -> str:
     value = value.replace("-", " ").replace("_", " ").strip()
     key = value.lower().replace(" ", "")
     mapping = {
+        # Auth
         "login": "软件登录",
         "register": "用户注册",
         "auth": "用户认证",
+        "signin": "登录",
+        "signup": "注册",
+        # Navigation
         "home": "首页",
         "dashboard": "数据看板",
+        "index": "首页",
+        # Project management
         "project": "项目管理",
         "projects": "项目管理",
         "projectsettings": "项目设置",
         "projectssettings": "项目设置",
+        # Settings
         "settings": "系统设置",
+        "configuration": "配置管理",
+        "config": "配置管理",
+        "preferences": "偏好设置",
+        # Assets / resources
         "asset": "资源管理",
         "assets": "资源管理",
         "assethub": "资源中心",
+        "media": "媒体管理",
+        "files": "文件管理",
+        "upload": "文件上传",
+        "download": "文件下载",
+        # Billing / payments
         "billing": "费用管理",
+        "payments": "支付管理",
+        "invoice": "发票管理",
+        # Chat / messaging
         "agentstatusbar": "智能体状态展示",
         "messagebubble": "消息展示",
         "chatpanel": "对话面板",
         "chatinput": "对话输入",
         "assetpanel": "资源面板",
+        "messages": "消息管理",
+        "notifications": "通知管理",
+        # User management
+        "users": "用户管理",
+        "profile": "个人资料",
+        "account": "账号管理",
+        "roles": "角色管理",
+        "permissions": "权限管理",
+        # Data
+        "search": "搜索",
+        "filter": "筛选",
+        "export": "数据导出",
+        "import": "数据导入",
+        "reports": "报表",
+        "analytics": "数据分析",
+        "logs": "日志查看",
+        "history": "历史记录",
+        # API / backend
+        "api": "接口服务",
+        "apikeys": "密钥管理",
+        "webhooks": "回调通知",
+        "health": "健康检查",
+        "status": "状态监控",
+        # Monitoring
+        "metrics": "指标监控",
+        "monitoring": "系统监控",
+        "alerts": "告警管理",
+        # Content
+        "blog": "文章管理",
+        "posts": "内容管理",
+        "comments": "评论管理",
+        "pages": "页面管理",
+        "content": "内容管理",
+        "cms": "内容管理",
+        # E-commerce
+        "products": "商品管理",
+        "orders": "订单管理",
+        "cart": "购物车",
+        "checkout": "结算",
+        "inventory": "库存管理",
+        "catalog": "商品目录",
+        # Common CRUD
+        "create": "新建",
+        "edit": "编辑",
+        "delete": "删除",
+        "list": "列表查看",
+        "detail": "详情查看",
+        "view": "查看",
+        # Generic
+        "admin": "后台管理",
+        "management": "管理",
     }
     return mapping.get(key, value.title() if re.search(r"[A-Za-z]", value) else value)
 
@@ -266,13 +389,52 @@ def build_fields(
     business: dict[str, Any] | None = None,
 ) -> dict[str, str]:
     frameworks = analysis.get("frameworks") or []
-    framework_text = "、".join(frameworks) if frameworks else "前端工程化框架"
+    project_type = str(analysis.get("project_type") or "unknown")
     language = analysis.get("language") or "待用户确认"
     project = Path(analysis.get("project_root") or ".")
     hardware_hint = current_hardware_environment()
     dev_os_hint = current_operating_system()
     version_hint = version_confirmation_hint(analysis, version)
     software_name_hint = f"待用户确认（建议：{software_name}；请确认最终软件全称）"
+
+    # Project-type-aware default framework text
+    if frameworks:
+        framework_text = "、".join(frameworks)
+    elif project_type in ("web_frontend", "web_fullstack", "unknown"):
+        framework_text = "前端工程化框架"
+    elif project_type == "web_backend":
+        framework_text = "后端服务框架"
+    elif project_type == "cli":
+        framework_text = "命令行工具框架"
+    elif project_type == "desktop":
+        framework_text = "桌面应用框架"
+    elif project_type == "mobile":
+        framework_text = "移动应用框架"
+    else:
+        framework_text = "软件开发框架"
+
+    # Project-type-aware default technical characteristics
+    _TECH_DEFAULTS = {
+        "web_frontend": f"系统采用{framework_text}构建前端界面，结合模块化组件、路由组织和状态管理实现业务功能",
+        "web_backend": f"系统采用{framework_text}构建后端服务，结合接口设计、数据处理和持久化存储实现业务功能",
+        "web_fullstack": f"系统采用{framework_text}构建前后端，结合组件化界面、接口封装和数据处理实现业务功能",
+        "cli": f"系统采用{framework_text}构建命令行工具，结合参数解析、命令分发和结果输出实现业务功能",
+        "desktop": f"系统采用{framework_text}构建桌面应用，结合窗口管理、事件处理和本地数据管理实现业务功能",
+        "mobile": f"系统采用{framework_text}构建移动应用，结合界面组件、触控交互和本地存储实现业务功能",
+        "library": f"系统采用{framework_text}构建开发库，结合模块化接口、数据结构和工具函数提供编程能力",
+        "embedded": f"系统采用{framework_text}构建嵌入式软件，结合硬件驱动、控制逻辑和状态管理实现设备功能",
+    }
+    default_tech = _TECH_DEFAULTS.get(project_type, _TECH_DEFAULTS["web_frontend"])
+
+    # 软件的技术特点：拆分为标签和描述两个字段
+    software_tech_option = ""
+    if business:
+        software_tech_option = str(business.get("software_technical_option") or "").strip()
+    # 如果业务理解提供的标签不在预设列表中，保留原值供用户确认
+    tech_tags = software_tech_option if software_tech_option else "待用户确认（如无符合项可不选）"
+    tech_description = ""
+    if business:
+        tech_description = str(business.get("technical_characteristics") or "").strip()
 
     defaults = {
         "软件全称": software_name_hint,
@@ -298,7 +460,8 @@ def build_fields(
         "开发目的": (business.get("application_purpose") or f"待用户确认（≤50字符，需说明开发目的，不能只写软件名称）") if business else "待用户确认（≤50字符，需说明开发目的，不能只写软件名称）",
         "面向领域 / 行业": (business.get("industry") or "待用户确认") if business else "待用户确认",
         "软件的主要功能": (business.get("main_functions") or summarize_features(analysis, software_name, business)) if business else summarize_features(analysis, software_name, business),
-        "软件的技术特点": (business.get("technical_characteristics") or f"系统采用{framework_text}构建前端界面，结合模块化组件、路由组织、接口封装和状态管理实现业务功能") if business else f"系统采用{framework_text}构建前端界面，结合模块化组件、路由组织、接口封装和状态管理实现业务功能",
+        "软件的技术特点（标签）": tech_tags,
+        "软件的技术特点（描述）": tech_description or default_tech,
         "页数": str(manifest.get("total_pages") or "待用户确认"),
     }
     defaults.update({k: v for k, v in answers.items() if v})
@@ -416,22 +579,50 @@ def current_operating_system() -> str:
 
 def infer_ide_name(project: Path) -> str:
     if (project / ".idea").exists():
+        # Detect JetBrains IDE type from project files
+        if (project / "pubspec.yaml").exists():
+            return "Android Studio 或 IntelliJ IDEA"
+        if any(project.glob("*.py")):
+            return "PyCharm 或 IntelliJ IDEA"
+        if any(project.glob("*.go")):
+            return "GoLand 或 IntelliJ IDEA"
+        if any(project.glob("*.rs")):
+            return "RustRover 或 IntelliJ IDEA"
         return "WebStorm 或 IntelliJ IDEA"
-    if (project / ".vscode").exists():
+    if (project / ".vscode").exists() or list(project.glob("*.code-workspace")):
         return "Visual Studio Code"
-    if list(project.glob("*.code-workspace")):
-        return "Visual Studio Code"
-    return "Visual Studio Code"
+    if (project / ".vs").exists() or list(project.glob("*.sln")) or list(project.glob("*.csproj")):
+        return "Visual Studio"
+    if list(project.glob("*.xcworkspace")) or list(project.glob("*.xcodeproj")):
+        return "Xcode"
+    if (project / ".project").exists() or (project / ".classpath").exists() or (project / ".settings").exists():
+        return "Eclipse"
+    if (project / "CMakeLists.txt").exists():
+        return "VS Code 或 Qt Creator 或 CLion"
+    return "待用户确认"
 
 
 def infer_runtime_os(analysis: dict[str, Any]) -> str:
+    project_type = str(analysis.get("project_type") or "unknown")
     frameworks = set(analysis.get("frameworks") or [])
     deps = set((analysis.get("package") or {}).get("dependency_names") or [])
-    if "Electron" in frameworks or "electron" in deps or "Tauri" in frameworks or "@tauri-apps/api" in deps:
-        return "Windows 10/11 或 macOS 13及以上版本"
-    if frameworks & {"Vue", "React", "Vite", "Next.js", "Nuxt", "Svelte", "Astro", "Angular"}:
-        return "Windows 10/11 或 macOS 13及以上版本"
-    return "Windows 10/11 或 macOS 13及以上版本"
+
+    if project_type == "mobile":
+        return "iOS 16及以上 / Android 13及以上"
+    if project_type == "desktop":
+        if "Electron" in frameworks or "Tauri" in frameworks:
+            return "Windows 10/11、macOS 13及以上版本、Linux 桌面环境"
+        return "Windows 10/11、macOS 13及以上版本、Linux 桌面环境"
+    if project_type == "web_backend":
+        return "Linux 服务器 / Windows Server / 容器环境（Docker）"
+    if project_type == "cli":
+        return "Windows 10/11、macOS 13及以上版本、Linux 终端环境"
+    if project_type == "embedded":
+        return "目标嵌入式硬件平台"
+    if project_type == "library":
+        return "与集成该库的应用系统运行环境一致"
+    # web_frontend, web_fullstack, unknown
+    return "Windows 10/11 或 macOS 13及以上版本，支持现代浏览器访问"
 
 
 def project_file(project: Path, relative: str) -> Path | None:
@@ -506,24 +697,74 @@ def infer_runtime_support(analysis: dict[str, Any], project: Path) -> str:
     package_path = (analysis.get("package") or {}).get("path") or ""
     deps = set((analysis.get("package") or {}).get("dependency_names") or [])
     frameworks = set(analysis.get("frameworks") or [])
+    project_type = str(analysis.get("project_type") or "unknown")
+    pkg_type = str((analysis.get("package") or {}).get("type") or "")
 
     support: list[str] = []
     readme_requirements = extract_requirement_bullets(read_readme(project))
+    is_web = project_type in ("web_frontend", "web_fullstack", "unknown")
 
-    if package_info or deps or frameworks & {"Vue", "React", "Vite", "Next.js", "Nuxt", "Svelte", "Astro", "Angular"}:
+    # Node.js ecosystem
+    if pkg_type == "npm" or deps or frameworks & {"Vue", "React", "Vite", "Next.js", "Nuxt", "Svelte", "Astro", "Angular"}:
         if not has_support_term(support, "node"):
             node_engine = str((package_info.get("engines") or {}).get("node") or "").strip()
             support.append(f"Node.js {node_engine}".strip() if node_engine else "Node.js")
         support.append(detect_package_manager(project, package_path))
+
+    # Only add browser for web projects
+    if is_web:
         support.append("现代浏览器")
 
-    if ((project / "pyproject.toml").exists() or any(project.glob("*/pyproject.toml"))) and not has_support_term(support, "python"):
-        support.append("Python")
-    if ((project / "requirements.txt").exists() or list(project.glob("*/requirements*.txt"))) and not has_support_term(support, "python"):
-        support.append("Python")
+    # Python ecosystem
+    if pkg_type == "python" or (project / "pyproject.toml").exists() or any(project.glob("*/pyproject.toml")):
+        if not has_support_term(support, "python"):
+            support.append("Python")
+    if (project / "requirements.txt").exists() or list(project.glob("*/requirements*.txt")):
+        if not has_support_term(support, "python"):
+            support.append("Python")
 
-    if ((project / "docker-compose.yml").exists() or (project / "docker-compose.yaml").exists() or list(project.glob("docker-compose*.yml"))) and not has_support_term(support, "docker"):
-        support.append("Docker")
+    # Go ecosystem
+    if pkg_type == "go" or (project / "go.mod").exists():
+        if not has_support_term(support, "go"):
+            support.append("Go")
+
+    # Rust ecosystem
+    if pkg_type == "rust" or (project / "Cargo.toml").exists():
+        if not has_support_term(support, "rust"):
+            support.append("Rust")
+
+    # Java ecosystem
+    if pkg_type and pkg_type.startswith("java"):
+        if not has_support_term(support, "java"):
+            support.append("JVM")
+
+    # Dart/Flutter
+    if pkg_type == "dart" or (project / "pubspec.yaml").exists():
+        if not has_support_term(support, "dart"):
+            support.append("Dart/Flutter")
+    # Ruby
+    if pkg_type == "ruby" or (project / "Gemfile").exists():
+        if not has_support_term(support, "ruby"):
+            support.append("Ruby")
+    # Elixir
+    if pkg_type == "elixir" or (project / "mix.exs").exists():
+        if not has_support_term(support, "elixir"):
+            support.append("Elixir/Erlang")
+    # .NET
+    if pkg_type == "dotnet" or list(project.glob("*.csproj")) or list(project.glob("*.sln")):
+        if not has_support_term(support, "dotnet"):
+            support.append(".NET Runtime")
+    # PHP
+    if pkg_type == "php" or (project / "composer.json").exists():
+        if not has_support_term(support, "php"):
+            support.append("PHP")
+    # C/C++
+    if any((project / name).exists() for name in ("CMakeLists.txt", "Makefile", "configure")):
+        if not has_support_term(support, "c"):
+            support.append("C/C++ Runtime")
+    if (project / "docker-compose.yml").exists() or (project / "docker-compose.yaml").exists() or list(project.glob("docker-compose*.yml")):
+        if not has_support_term(support, "docker"):
+            support.append("Docker")
 
     compose_text = ""
     for compose in list(project.glob("docker-compose*.yml")) + list(project.glob("docker-compose*.yaml")):
@@ -536,7 +777,7 @@ def infer_runtime_support(analysis: dict[str, Any], project: Path) -> str:
     if "redis" in compose_text:
         support.append("Redis")
 
-    # Also incorporate readme requirements into support software
+    # Readme requirements
     for req in readme_requirements:
         if not has_support_term(support, req.split()[0].lower()):
             support.append(req)
@@ -551,7 +792,6 @@ def infer_runtime_support(analysis: dict[str, Any], project: Path) -> str:
     if not unique:
         return "待用户确认"
 
-    # Enforce ≤50 char limit: trim items if needed
     result = "、".join(unique)
     if len(result) > 50:
         trimmed: list[str] = []
@@ -609,7 +849,7 @@ def write_application_md(path: Path, fields: dict[str, str], analysis: dict[str,
         "软件运行支撑环境 / 支持软件": 50,
         "开发目的": 50,
         "面向领域 / 行业": 50,
-        "软件的技术特点": 100,
+        "软件的技术特点（描述）": 100,
     }
     for field_name, limit in char_limit_fields.items():
         value = fields.get(field_name, "")
@@ -628,7 +868,7 @@ def write_application_md(path: Path, fields: dict[str, str], analysis: dict[str,
             "- 开发完成日期、首次发表日期：必须使用 YYYY-MM-DD 格式。",
             "- 开发方式：单独开发/合作开发/委托开发/下达任务开发。",
             "- 软件说明：原创 / 修改（含翻译软件、合成软件）。",
-            "- 发表状态：已发表或未发表；已发表需附首次发表日期。",
+            "- 发表状态：已发表或未发表；已发表需附首次发表日期，未发表则首次发表日期留空。",
             "- 软件开发环境 / 开发工具：≤50字符，格式 `开发环境: <OS>/开发工具: <IDE名称>`。",
             "- 开发该软件的操作系统：≤50字符，填写实际开发电脑的操作系统版本。",
             "- 该软件的运行平台 / 操作系统：≤50字符，填写软件运行所在的操作系统或浏览器环境。",
@@ -638,7 +878,8 @@ def write_application_md(path: Path, fields: dict[str, str], analysis: dict[str,
             "- 开发目的：≤50字符，用一句话说明目的，不能只写软件名称。",
             "- 面向领域 / 行业：≤50字符。",
             "- 软件的主要功能：500~1300字符。",
-            "- 软件的技术特点：多选标签（APP/游戏软件/教育软件/金融软件/医疗软件/地理信息软件/云计算软件/信息安全软件/大数据软件/人工智能软件/VR软件/5G软件/小程序/物联网软件/智慧城市软件）+ 文本描述≤100字符。",
+            "- 软件的技术特点（标签）：多选标签（APP/游戏软件/教育软件/金融软件/医疗软件/地理信息软件/云计算软件/信息安全软件/大数据软件/人工智能软件/VR软件/5G软件/小程序/物联网软件/智慧城市软件），如无符合项可不选。",
+            "- 软件的技术特点（描述）：≤100字符，简述技术架构和关键技术。",
             "",
             "## 项目分析摘要",
             "",

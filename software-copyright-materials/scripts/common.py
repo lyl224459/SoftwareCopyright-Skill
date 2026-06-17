@@ -16,6 +16,7 @@ EXCLUDE_DIRS = {
     ".svn",
     ".idea",
     ".vscode",
+    ".vs",
     "__pycache__",
     "node_modules",
     "dist",
@@ -26,30 +27,54 @@ EXCLUDE_DIRS = {
     "coverage",
     "target",
     "vendor",
+    "bin",
+    "obj",
+    "out",
+    "Debug",
+    "Release",
+    ".gradle",
+    "Pods",
+    ".eggs",
+    "DerivedData",
     "软件著作权申请资料",
     "software-copyright-materials",
 }
 
 CODE_EXTS = {
-    ".vue",
-    ".ts",
-    ".tsx",
-    ".js",
-    ".jsx",
-    ".mjs",
-    ".cjs",
-    ".css",
-    ".scss",
-    ".sass",
-    ".less",
-    ".html",
-    ".svelte",
-    ".astro",
-    ".json",
-    ".md",
+    # Web frontend
+    ".vue", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs",
+    ".css", ".scss", ".sass", ".less", ".html", ".svelte", ".astro",
+    # Data/config
+    ".json", ".md", ".yaml", ".yml", ".toml", ".xml",
+    # Backend languages
+    ".py", ".java", ".go", ".rs", ".cs", ".php", ".rb",
+    ".kt", ".swift", ".cpp", ".c", ".h", ".hpp",
+    # Database
+    ".sql",
+    # Scripting
+    ".sh", ".bash", ".ps1",
+    # JVM
+    ".scala", ".groovy", ".clj", ".cljs",
+    # .NET
+    ".fs", ".fsx", ".vb",
+    # Mobile
+    ".dart",
+    # Functional / systems
+    ".ex", ".exs", ".hs", ".lhs",
+    ".lua", ".zig", ".nim", ".jl",
+    # Scripting (legacy)
+    ".pl", ".pm",
+    # Data science
+    ".r", ".rmd",
+    # Other
+    ".proto", ".graphql",
 }
 
+# SOURCE_EXTS is the canonical name; CODE_EXTS kept for backward compatibility
+SOURCE_EXTS = CODE_EXTS
+
 KNOWN_CONFIG_FILES = {
+    # JS/TS ecosystem
     ".babelrc",
     ".eslintrc",
     ".eslintrc.json",
@@ -66,16 +91,9 @@ KNOWN_CONFIG_FILES = {
     "astro.config.ts",
     "babel.config.js",
     "babel.config.json",
-    "Cargo.lock",
-    "Cargo.toml",
-    "composer.json",
-    "docker-compose.yaml",
-    "docker-compose.yml",
     "eslint.config.cjs",
     "eslint.config.js",
     "eslint.config.mjs",
-    "go.mod",
-    "go.sum",
     "jsconfig.json",
     "lerna.json",
     "manifest.json",
@@ -95,7 +113,6 @@ KNOWN_CONFIG_FILES = {
     "prettier.config.js",
     "prettier.config.mjs",
     "project.json",
-    "pyproject.toml",
     "rollup.config.js",
     "rollup.config.mjs",
     "rollup.config.ts",
@@ -116,6 +133,59 @@ KNOWN_CONFIG_FILES = {
     "webpack.config.js",
     "webpack.config.ts",
     "workspace.json",
+    # Python ecosystem
+    "pyproject.toml",
+    "setup.py",
+    "setup.cfg",
+    "Pipfile",
+    "Pipfile.lock",
+    "poetry.lock",
+    "requirements.txt",
+    # Java/Kotlin ecosystem
+    "pom.xml",
+    "build.gradle",
+    "build.gradle.kts",
+    "settings.gradle",
+    "settings.gradle.kts",
+    "gradle.lockfile",
+    "gradlew",
+    "gradlew.bat",
+    # C#/.NET ecosystem
+    # (csproj/fsproj/vbproj matched by extension below)
+    # Go ecosystem
+    "go.mod",
+    "go.sum",
+    # Rust ecosystem
+    "Cargo.toml",
+    "Cargo.lock",
+    # Ruby ecosystem
+    "Gemfile",
+    "Gemfile.lock",
+    # PHP ecosystem
+    "composer.json",
+    "composer.lock",
+    # Dart/Flutter ecosystem
+    "pubspec.yaml",
+    "pubspec.lock",
+    # Swift ecosystem
+    "Package.swift",
+    "Package.resolved",
+    # C/C++ ecosystem
+    "CMakeLists.txt",
+    "Makefile",
+    "Makefile.am",
+    "configure",
+    # Elixir ecosystem
+    "mix.exs",
+    "mix.lock",
+    # iOS/CocoaPods
+    "Podfile",
+    "Podfile.lock",
+    # General
+    "docker-compose.yaml",
+    "docker-compose.yml",
+    "Dockerfile",
+    ".dockerignore",
 }
 
 FRONTEND_EXTS = {
@@ -134,22 +204,25 @@ FRONTEND_EXTS = {
     ".astro",
 }
 
-SUPPLEMENT_CODE_EXTS = {
-    ".py",
-    ".java",
-    ".go",
-    ".rs",
-    ".cs",
-    ".php",
-    ".rb",
-    ".kt",
-    ".swift",
-    ".sql",
-    ".sh",
-    ".json",
+BACKEND_EXTS = {
+    ".py", ".java", ".go", ".rs", ".cs", ".php", ".rb",
+    ".kt", ".swift", ".cpp", ".c", ".h", ".hpp",
+    ".scala", ".groovy", ".clj", ".cljs",
+    ".fs", ".fsx", ".vb",
+    ".ex", ".exs", ".hs", ".lhs",
+    ".lua", ".zig", ".nim", ".jl",
+    ".pl", ".pm",
+    ".r", ".rmd",
 }
 
-COPYRIGHT_CODE_EXTS = FRONTEND_EXTS | SUPPLEMENT_CODE_EXTS
+SUPPLEMENT_CODE_EXTS = {
+    ".cmake", ".bzl", ".bazel",
+    ".rst", ".adoc", ".tex",
+    ".jinja", ".jinja2", ".hbs", ".ejs",
+    ".gradle",
+}
+
+COPYRIGHT_CODE_EXTS = FRONTEND_EXTS | BACKEND_EXTS | SUPPLEMENT_CODE_EXTS
 
 LOCK_FILES = {
     "package-lock.json",
@@ -157,6 +230,15 @@ LOCK_FILES = {
     "yarn.lock",
     "bun.lockb",
     "bun.lock",
+    "Cargo.lock",
+    "Gemfile.lock",
+    "poetry.lock",
+    "Pipfile.lock",
+    "composer.lock",
+    "Podfile.lock",
+    "mix.lock",
+    "gradle.lockfile",
+    "Package.resolved",
 }
 
 
@@ -229,9 +311,15 @@ def count_text_lines(path: Path, skip_blank: bool = True) -> int:
     return len(text.splitlines())
 
 
+CONFIG_EXT_PATTERNS = {".csproj", ".fsproj", ".vbproj", ".sln", ".slnx"}
+
 def is_known_config_file(path: Path) -> bool:
     """Return True for well-known config files that shouldn't count as source code."""
-    return path.name in KNOWN_CONFIG_FILES
+    if path.name in KNOWN_CONFIG_FILES:
+        return True
+    if path.suffix.lower() in CONFIG_EXT_PATTERNS:
+        return True
+    return False
 
 
 def looks_binary(path: Path) -> bool:

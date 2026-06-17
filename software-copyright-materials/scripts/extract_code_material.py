@@ -14,39 +14,115 @@ LINES_PER_PAGE = 50
 SPLIT_THRESHOLD_PAGES = 60
 
 
-def category_weight(path: Path, project: Path) -> tuple[int, str]:
+def category_weight(path: Path, project: Path, project_type: str = "unknown") -> tuple[int, str]:
     r = rel(path, project).lower()
     name = path.name.lower()
-    priority = 80
-    if name in {"main.ts", "main.js", "main.tsx", "main.jsx", "app.vue", "app.tsx"} or r in {
-        "src/app/page.tsx",
-        "src/app/layout.tsx",
-        "app/page.tsx",
-        "app/layout.tsx",
-    } or r.endswith("/src/app/page.tsx") or r.endswith("/src/app/layout.tsx"):
-        priority = 0
-    elif path.suffix.lower() in {".css", ".scss", ".sass", ".less"}:
-        priority = 90
-    elif "/router/" in r or "/routes/" in r or "router." in r or "routes." in r:
-        priority = 10
-    elif "/pages/" in r or "/views/" in r or "/app/" in r or "/screens/" in r:
-        priority = 20
-    elif "/api/" in r or "/apis/" in r or "/services/" in r or "request." in r:
-        priority = 30
-    elif "/store/" in r or "/stores/" in r or "/pinia/" in r or "/redux/" in r:
-        priority = 40
-    elif "/components/" in r:
-        priority = 50
-    elif "/utils/" in r or "/lib/" in r or "/hooks/" in r or "/composables/" in r:
-        priority = 60
-    elif path.suffix.lower() not in FRONTEND_EXTS:
-        if any(part in r for part in ("/backend/app/", "/server/", "/api/", "/services/", "/models/", "/schemas/", "/workers/")):
-            priority = 70
-        elif name in {"docker-compose.yml", "docker-compose.yaml", "pyproject.toml"} or path.suffix.lower() in {".toml", ".yml", ".yaml"}:
-            priority = 95
-        else:
-            priority = 100
-    return priority, r
+    suffix = path.suffix.lower()
+
+    # --- Web frontend & fullstack priorities (existing behavior) ---
+    if project_type in ("web_frontend", "web_fullstack", "unknown"):
+        if name in {"main.ts", "main.js", "main.tsx", "main.jsx", "app.vue", "app.tsx"} or r in {
+            "src/app/page.tsx",
+            "src/app/layout.tsx",
+            "app/page.tsx",
+            "app/layout.tsx",
+        } or r.endswith("/src/app/page.tsx") or r.endswith("/src/app/layout.tsx"):
+            return 0, r
+        if suffix in {".css", ".scss", ".sass", ".less"}:
+            return 90, r
+        if any(part in r for part in ("/router/", "/routes/", "router.", "routes.")):
+            return 10, r
+        if any(part in r for part in ("/pages/", "/views/", "/app/", "/screens/")):
+            return 20, r
+        if "/components/" in r:
+            return 50, r
+        if "/api/" in r or "/apis/" in r or "request." in r:
+            return 30, r
+        if any(part in r for part in ("/store/", "/stores/", "/pinia/", "/redux/")):
+            return 40, r
+        if any(part in r for part in ("/utils/", "/lib/", "/hooks/", "/composables/")):
+            return 60, r
+        if suffix not in FRONTEND_EXTS:
+            if any(part in r for part in ("/backend/app/", "/server/", "/api/", "/services/", "/models/", "/schemas/", "/workers/")):
+                return 70, r
+            if name in {"docker-compose.yml", "docker-compose.yaml", "pyproject.toml"} or suffix in {".toml", ".yml", ".yaml"}:
+                return 95, r
+            return 100, r
+        return 80, r
+
+    # --- Backend-first priorities ---
+    if project_type in ("web_backend", "cli"):
+        # Entry files
+        if name in {"main.py", "main.go", "main.rs", "app.py", "manage.py", "main.dart"} or name.endswith("_test.go"):
+            return 0, r
+        # API / controllers
+        if any(part in r for part in ("/controllers/", "/handlers/", "/routes/", "/routers/",
+                                       "/endpoints/", "/api/", "/middleware/", "/views.py")):
+            return 10, r
+        # Services / business logic
+        if any(part in r for part in ("/services/", "/service/", "/usecases/", "/use_cases/",
+                                       "/domain/", "/business/")):
+            return 20, r
+        # Models / schemas
+        if any(part in r for part in ("/models/", "/schemas/", "/entities/", "/dtos/",
+                                       "/repositories/", "/dao/", "/mapping/")):
+            return 30, r
+        # Utils / libs
+        if any(part in r for part in ("/utils/", "/lib/", "/libs/", "/helpers/",
+                                       "/common/", "/shared/", "/internal/", "/pkg/",
+                                       "/core/", "/config/")):
+            return 40, r
+        # CLI commands
+        if any(part in r for part in ("/cmd/", "/commands/", "/cli/", "commands.py", "cli.py")):
+            return 15, r
+        if suffix in {".css", ".scss", ".sass", ".less"}:
+            return 90, r
+        return 50, r
+
+    # --- Desktop-first priorities ---
+    if project_type == "desktop":
+        if name in {"main.py", "main.go", "main.rs", "main.dart", "program.cs", "app.py"}:
+            return 0, r
+        if any(part in r for part in ("/ui/", "/views/", "/windows/", "/widgets/", "/components/",
+                                       "/panels/", "/dialogs/", "/screens/")):
+            return 10, r
+        if any(part in r for part in ("/services/", "/controllers/", "/handlers/")):
+            return 20, r
+        if any(part in r for part in ("/models/", "/schemas/", "/store/", "/state/")):
+            return 30, r
+        if any(part in r for part in ("/utils/", "/lib/", "/helpers/", "/common/")):
+            return 40, r
+        return 50, r
+
+    # --- Mobile-first priorities ---
+    if project_type == "mobile":
+        if name in {"main.dart", "app.dart", "main.tsx", "app.tsx"}:
+            return 0, r
+        if any(part in r for part in ("/screens/", "/pages/", "/views/", "/ui/")):
+            return 10, r
+        if any(part in r for part in ("/widgets/", "/components/", "/features/")):
+            return 20, r
+        if any(part in r for part in ("/services/", "/api/", "/providers/", "/bloc/", "/cubit/")):
+            return 30, r
+        if any(part in r for part in ("/models/", "/entities/", "/store/", "/state/")):
+            return 40, r
+        if any(part in r for part in ("/utils/", "/lib/", "/helpers/", "/common/")):
+            return 50, r
+        return 60, r
+
+    # --- Library / embedded ---
+    if project_type in ("library", "embedded"):
+        if name in {"lib.rs", "mod.rs", "__init__.py", "index.ts", "index.js"}:
+            return 0, r
+        if any(part in r for part in ("/src/", "/lib/", "/core/", "/api/")):
+            return 10, r
+        if any(part in r for part in ("/utils/", "/helpers/", "/common/")):
+            return 30, r
+        if any(part in r for part in ("/tests/", "/test/", "/spec/", "/__tests__/")):
+            return 80, r
+        return 50, r
+
+    return 80, r
 
 
 def should_skip_file(path: Path) -> bool:
@@ -216,7 +292,7 @@ def extract(project: Path, out_dir: Path, software_name: str, version: str, line
     ensure_dir(out_dir)
     code_lines, files = collect_code_lines(project, selection_path)
     if not code_lines:
-        raise SystemExit("No selected frontend source code files found for extraction.")
+        raise SystemExit("No selected source code files found for extraction.")
 
     pages = paginate(code_lines, lines_per_page)
     total_pages = len(pages)

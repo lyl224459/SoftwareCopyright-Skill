@@ -45,6 +45,9 @@ def plain_manual_text(text: str) -> str:
         "调度中心": "协调中心",
         "结构化依据": "后续说明",
         "高成本生成": "耗时较长的内容生成",
+        "依赖注入": "服务组装",
+        "中间件": "处理环节",
+        "ORM": "数据访问",
     }
     for source, target in replacements.items():
         value = value.replace(source, target)
@@ -54,6 +57,8 @@ def plain_manual_text(text: str) -> str:
     value = re.sub(r"\bReact\b|\bVue\b|\bVite\b|\bNext\b|\bNext\.js\b|\bFastAPI\b|\bLangGraph\b|\bCelery\b|\bSSE\b", "相关软件能力", value)
     value = re.sub(r"相关软件能力、相关软件能力", "相关软件能力", value)
     value = re.sub(r"多智能体\s+协作", "多智能体协作", value)
+    # Remove repeated instances of the same generic replacement
+    value = re.sub(r"(相关软件能力)([、，,]\s*相关软件能力)+", r"\1", value)
     return value
 
 
@@ -96,6 +101,15 @@ TECHNICAL_TERMS = [
     "FastAPI",
     "LangGraph",
     "Celery",
+    "组件化",
+    "模块化开发",
+    "前端工程化",
+    "RESTful",
+    "SSE",
+    "WebSocket",
+    "ORM",
+    "中间件",
+    "依赖注入",
 ]
 
 TEMPLATE_MARKERS = [
@@ -117,6 +131,18 @@ TEMPLATE_MARKERS = [
     "操作结果与反馈：",
     "功能特点根据当前项目资料",
     "软件围绕",
+    "本章将介绍",
+    "以下将详细说明",
+    "具体来说",
+    "需要说明的是",
+    "值得注意的是",
+    "从整体上看",
+    "综上所述",
+    "本软件是一款集",
+    "系统主要包含以下",
+    "该软件具有如下",
+    "下面对各功能",
+    "下面分别介绍",
 ]
 
 AI_TONE_MARKERS = [
@@ -135,6 +161,26 @@ AI_TONE_MARKERS = [
     "降本增效",
     "优化体验",
     "提升效率",
+    "全面覆盖",
+    "深度整合",
+    "无缝衔接",
+    "极致",
+    "轻松实现",
+    "轻松完成",
+    "轻松管理",
+    "快速上手",
+    "简单易用",
+    "灵活配置",
+    "完美解决",
+    "最佳实践",
+    "行业领先",
+    "创新性地",
+    "突破性",
+    "革命性",
+    "颠覆性",
+    "卓越",
+    "非凡",
+    "出众",
 ]
 
 
@@ -469,25 +515,44 @@ def clean_purpose_text(feature: str, purpose: str) -> str:
     return value or "完成本页面相关操作"
 
 
-def page_label(feature: str) -> str:
+def module_label(feature: str) -> str:
+    """Return a clean module/feature label (project-type-neutral name)."""
     value = strip_sentence_punctuation(feature)
     if value.startswith("用户") and len(value) > 2:
         value = value[2:]
     return value
 
 
-def purpose_core_sentence(feature: str, purpose: str) -> str:
+# Legacy alias for backward compatibility
+page_label = module_label
+
+
+def _project_term(project_type: str) -> str:
+    """Return the appropriate UI container term for the project type."""
+    if project_type == "desktop":
+        return "窗口"
+    if project_type == "mobile":
+        return "屏幕"
+    if project_type in ("cli", "web_backend", "library"):
+        return "模块"
+    return "页面"
+
+
+def purpose_core_sentence(feature: str, purpose: str, project_type: str = "web_frontend") -> str:
     value = clean_purpose_text(feature, purpose)
-    label = page_label(feature)
+    label = module_label(feature)
+    term = _project_term(project_type)
     if re.match(r"^(展示|集中展示|承载|提供|处理|保存|记录|辅助)", value):
-        return f"{label}页面{value}"
+        return f"{label}{term}{value}"
     if value.startswith("让用户"):
-        return f"{label}页面{value}"
-    return f"用户可在{label}页面{value}"
+        return f"{label}{term}{value}"
+    if project_type in ("cli",):
+        return f"用户可通过{label}{term}{value}"
+    return f"用户可在{label}{term}{value}"
 
 
-def purpose_sentence(feature: str, purpose: str) -> str:
-    return purpose_core_sentence(feature, purpose) + "。"
+def purpose_sentence(feature: str, purpose: str, project_type: str = "web_frontend") -> str:
+    return purpose_core_sentence(feature, purpose, project_type) + "。"
 
 
 def entry_sentence(entry: str) -> str:
@@ -503,19 +568,38 @@ def entry_sentence(entry: str) -> str:
     return f"用户可以通过{value}。"
 
 
-def visible_elements_sentence(items: list[str], feature: str, index: int) -> str:
+def visible_elements_sentence(items: list[str], feature: str, index: int, project_type: str = "web_frontend") -> str:
     value = natural_join(items, limit=8)
     if not value:
         return ""
-    variants = [
-        f"页面上主要呈现{value}等内容，这些内容用于帮助用户确认当前位置和可执行操作。",
-        f"用户在{feature}页面会看到{value}等信息，并可依据页面显示继续处理。",
-        f"该部分提供{value}等页面内容，用户可据此查看状态、填写信息或选择下一步操作。",
-    ]
+    if project_type in ("desktop",):
+        variants = [
+            f"该窗口主要呈现{value}等内容，用于帮助用户确认当前位置和可执行操作。",
+            f"用户在{feature}窗口中会看到{value}等信息，并可依据界面显示继续处理。",
+            f"该部分提供{value}等界面内容，用户可据此查看状态、填写信息或选择下一步操作。",
+        ]
+    elif project_type in ("cli", "web_backend"):
+        variants = [
+            f"该模块主要涉及{value}等内容，用于帮助用户确认当前状态和可执行操作。",
+            f"用户在处理{feature}时会看到{value}等信息，并可根据反馈继续处理。",
+            f"该部分提供{value}等输出内容，用户可据此了解状态或继续后续操作。",
+        ]
+    elif project_type == "mobile":
+        variants = [
+            f"屏幕上主要呈现{value}等内容，用于帮助用户确认当前位置和可执行操作。",
+            f"用户在{feature}屏幕会看到{value}等信息，并可依据界面显示继续处理。",
+            f"该部分提供{value}等界面内容，用户可据此查看状态或进行下一步操作。",
+        ]
+    else:
+        variants = [
+            f"页面上主要呈现{value}等内容，这些内容用于帮助用户确认当前位置和可执行操作。",
+            f"用户在{feature}页面会看到{value}等信息，并可依据页面显示继续处理。",
+            f"该部分提供{value}等页面内容，用户可据此查看状态、填写信息或选择下一步操作。",
+        ]
     return variants[(index - 1) % len(variants)]
 
 
-def steps_sentence(steps: list[str], module_index: int) -> str:
+def steps_sentence(steps: list[str], module_index: int, project_type: str = "web_frontend") -> str:
     values = [strip_sentence_punctuation(step) for step in steps if strip_sentence_punctuation(step)]
     if not values:
         return ""
@@ -527,7 +611,15 @@ def steps_sentence(steps: list[str], module_index: int) -> str:
         else:
             connector = connectors[min(step_index, len(connectors) - 1)]
         parts.append(f"{connector}{step}")
-    prefixes = ["实际操作时，用户", "使用该功能时，用户", "在该页面中，用户"]
+
+    if project_type == "desktop":
+        prefixes = ["实际操作时，用户", "使用该功能时，用户", "在该窗口中，用户"]
+    elif project_type == "mobile":
+        prefixes = ["实际操作时，用户", "使用该功能时，用户", "在该屏幕中，用户"]
+    elif project_type in ("cli", "web_backend", "library"):
+        prefixes = ["实际操作时，用户", "使用该功能时，用户", "在该模块中，用户"]
+    else:
+        prefixes = ["实际操作时，用户", "使用该功能时，用户", "在该页面中，用户"]
     return prefixes[(module_index - 1) % len(prefixes)] + "，".join(parts) + "。"
 
 
@@ -552,18 +644,39 @@ def rules_feedback_sentence(rules: list[str], feedback: list[str], index: int) -
     return "".join(parts)
 
 
-def feature_paragraph(module: dict[str, Any], index: int) -> str:
+def feature_paragraph(module: dict[str, Any], index: int, project_type: str = "web_frontend") -> str:
     feature = module["feature"]
     purpose = clean_purpose_text(feature, module.get("purpose") or "")
-    label = page_label(feature)
-    core = purpose_core_sentence(feature, module.get("purpose") or "")
+    label = module_label(feature)
+    core = purpose_core_sentence(feature, module.get("purpose") or "", project_type)
     elements = natural_join(as_text_list(module.get("visible_elements")), limit=5)
     feedback = natural_join(as_text_list(module.get("feedback")), limit=3)
-    variants = [
-        f"{core}。页面上的{elements or '相关业务信息'}会集中呈现当前可操作内容，用户处理完成后可以看到{feedback or '相应的处理结果'}。",
-        f"在{label}页面中，用户主要处理{purpose}。系统把{elements or '页面显示内容'}放在当前操作区域，处理结束后会反馈{feedback or '处理结果'}。",
-        f"{label}页面关注的是{purpose}。用户通过{elements or '必要的页面信息'}确认当前状态，并在操作结束后获得{feedback or '当前状态反馈'}。",
-    ]
+    term = _project_term(project_type)
+
+    if project_type == "desktop":
+        variants = [
+            f"{core}。窗口上的{elements or '相关业务信息'}会集中呈现当前可操作内容，用户处理完成后可以看到{feedback or '相应的处理结果'}。",
+            f"在{label}窗口中，用户主要处理{purpose}。系统把{elements or '界面显示内容'}放在当前操作区域，处理结束后会反馈{feedback or '处理结果'}。",
+            f"{label}窗口关注的是{purpose}。用户通过{elements or '必要的界面信息'}确认当前状态，并在操作结束后获得{feedback or '当前状态反馈'}。",
+        ]
+    elif project_type == "mobile":
+        variants = [
+            f"{core}。屏幕上的{elements or '相关业务信息'}会集中呈现当前可操作内容，用户处理完成后可以看到{feedback or '相应的处理结果'}。",
+            f"在{label}屏幕中，用户主要处理{purpose}。系统把{elements or '屏幕显示内容'}放在当前操作区域，处理结束后会反馈{feedback or '处理结果'}。",
+            f"{label}屏幕关注的是{purpose}。用户通过{elements or '必要的屏幕信息'}确认当前状态，并在操作结束后获得{feedback or '当前状态反馈'}。",
+        ]
+    elif project_type in ("cli", "web_backend", "library"):
+        variants = [
+            f"{core}。{elements or '相关业务信息'}会集中呈现当前可操作内容，用户处理完成后可以看到{feedback or '相应的处理结果'}。",
+            f"在{label}{term}中，用户主要处理{purpose}。系统把{elements or '输出内容'}放在当前处理区域，处理结束后会反馈{feedback or '处理结果'}。",
+            f"{label}{term}关注的是{purpose}。用户通过{elements or '必要的信息'}确认当前状态，并在操作结束后获得{feedback or '当前状态反馈'}。",
+        ]
+    else:
+        variants = [
+            f"{core}。页面上的{elements or '相关业务信息'}会集中呈现当前可操作内容，用户处理完成后可以看到{feedback or '相应的处理结果'}。",
+            f"在{label}页面中，用户主要处理{purpose}。系统把{elements or '页面显示内容'}放在当前操作区域，处理结束后会反馈{feedback or '处理结果'}。",
+            f"{label}页面关注的是{purpose}。用户通过{elements or '必要的页面信息'}确认当前状态，并在操作结束后获得{feedback or '当前状态反馈'}。",
+        ]
     return variants[(index - 1) % len(variants)]
 
 
@@ -589,7 +702,7 @@ def tidy_manual_output(text: str) -> str:
     return value
 
 
-def append_modules_canonical(lines: list[str], modules: list[dict[str, Any]], start_index: int) -> int:
+def append_modules_canonical(lines: list[str], modules: list[dict[str, Any]], start_index: int, project_type: str = "web_frontend") -> int:
     for i, module in enumerate(modules, start=start_index):
         visible_elements = as_text_list(module.get("visible_elements"))
         validation_rules = as_text_list(module.get("validation_rules"))
@@ -598,16 +711,16 @@ def append_modules_canonical(lines: list[str], modules: list[dict[str, Any]], st
             [
                 section_heading(i, module["feature"]),
                 "",
-                purpose_sentence(module["feature"], module["purpose"]) + entry_sentence(module["entry"]),
+                purpose_sentence(module["feature"], module["purpose"], project_type) + entry_sentence(module["entry"]),
                 "",
             ]
         )
         if module.get("usage"):
             lines.extend([ensure_sentence(module["usage"]), ""])
-        element_text = visible_elements_sentence(visible_elements, module["feature"], i)
+        element_text = visible_elements_sentence(visible_elements, module["feature"], i, project_type)
         if element_text:
             lines.extend([element_text, ""])
-        step_text = steps_sentence(module["steps"], i)
+        step_text = steps_sentence(module["steps"], i, project_type)
         if step_text:
             lines.extend([step_text, ""])
         rule_feedback = rules_feedback_sentence(validation_rules, feedback, i)
@@ -617,12 +730,23 @@ def append_modules_canonical(lines: list[str], modules: list[dict[str, Any]], st
     return start_index + len(modules)
 
 
-def append_flow_canonical(lines: list[str], software_name: str, flow: list[str], start_index: int) -> int:
+def append_flow_canonical(lines: list[str], software_name: str, flow: list[str], start_index: int, project_type: str = "web_frontend") -> int:
+    if project_type in ("web_frontend", "web_fullstack", "unknown"):
+        flow_text = f"用户完成一次完整业务时，通常先进入{software_name}，再选择或创建业务对象，随后按照页面提示处理内容并查看结果。"
+    elif project_type == "desktop":
+        flow_text = f"用户完成一次完整业务时，通常先启动{software_name}，再选择或创建业务对象，随后按照窗口提示处理内容并查看结果。"
+    elif project_type == "mobile":
+        flow_text = f"用户完成一次完整业务时，通常先打开{software_name}，再选择或创建业务对象，随后按照屏幕提示处理内容并查看结果。"
+    elif project_type in ("cli",):
+        flow_text = f"用户完成一次完整业务时，通常先执行{software_name}命令，再通过子命令或参数选择操作对象，随后按照命令输出和提示继续处理并查看结果。"
+    else:
+        flow_text = f"用户完成一次完整业务时，通常先进入{software_name}，再选择或创建业务对象，随后按照操作提示处理内容并查看结果。"
+
     lines.extend(
         [
             section_heading(start_index, "典型使用流程"),
             "",
-            f"用户完成一次完整业务时，通常先进入{software_name}，再选择或创建业务对象，随后按照页面提示处理内容并查看结果。",
+            flow_text,
             "",
             flow_summary(flow, []),
             "",
@@ -642,6 +766,7 @@ def render_manual_canonical(
     operation_flow: list[str],
     manual_sections: list[Any] | None = None,
     business: dict[str, Any] | None = None,
+    project_type: str = "web_frontend",
 ) -> str:
     industry_text = "相关业务" if not industry or industry == "待用户确认" else industry
     user_text = join_items([user for user in users if user != "待用户确认"]) or "实际使用人员"
@@ -668,37 +793,73 @@ def render_manual_canonical(
             "",
             f"{software_name} {version}适用于{industry_text}场景。用户进入系统后，可以围绕实际工作内容完成账号进入、业务创建、过程查看、结果确认和资料管理等操作。",
             "",
-            f"日常使用时，{user_text}可以按照页面提示从入口进入相应页面，查看当前业务状态，并根据页面中的按钮、输入框、列表或弹窗继续处理。{core_value_text}",
-            "",
         ]
     )
+    # Build project-type-aware action description
+    if project_type in ("web_frontend", "web_fullstack", "unknown"):
+        action_desc = f"日常使用时，{user_text}可以按照页面提示从入口进入相应页面，查看当前业务状态，并根据页面中的按钮、输入框、列表或弹窗继续处理。" + core_value_text
+    elif project_type == "desktop":
+        action_desc = f"日常使用时，{user_text}可以按照窗口提示从菜单或入口进入相应窗口，查看当前业务状态，并根据窗口中的菜单项、按钮、输入框或对话框继续处理。" + core_value_text
+    elif project_type == "mobile":
+        action_desc = f"日常使用时，{user_text}可以按照屏幕提示从入口进入相应屏幕，查看当前业务状态，并根据屏幕中的按钮、输入框、列表或弹窗继续处理。" + core_value_text
+    elif project_type in ("cli",):
+        action_desc = f"日常使用时，{user_text}可以在终端中输入命令和参数，查看命令输出和状态信息，并根据返回结果继续处理。" + core_value_text
+    else:
+        action_desc = f"日常使用时，{user_text}可以按照操作提示进入相应功能区域，查看当前业务状态，并根据操作入口、输入区域和反馈信息继续处理。" + core_value_text
+
+    lines.extend([action_desc, ""])
+
     if positioning_text:
         lines.extend([positioning_text, ""])
     for paragraph in overview_paragraphs:
         lines.extend([paragraph, ""])
+
+    # Build project-type-aware manual description
+    if project_type in ("web_frontend", "web_fullstack", "unknown"):
+        manual_desc = "本手册用于说明软件的用途、功能特点、运行要求和页面操作流程。各功能章节按用户能够看到的页面、入口、按钮、输入项、提示信息和处理结果进行说明。"
+    elif project_type == "desktop":
+        manual_desc = "本手册用于说明软件的用途、功能特点、运行要求和窗口操作流程。各功能章节按用户能够看到的窗口、菜单、按钮、输入项、提示信息和处理结果进行说明。"
+    elif project_type == "mobile":
+        manual_desc = "本手册用于说明软件的用途、功能特点、运行要求和屏幕操作流程。各功能章节按用户能够看到的屏幕、按钮、输入项、提示信息和处理结果进行说明。"
+    elif project_type in ("cli",):
+        manual_desc = "本手册用于说明软件的用途、功能特点、运行要求和命令操作流程。各功能章节按用户能够使用的命令、参数、选项、输出信息和处理结果进行说明。"
+    else:
+        manual_desc = "本手册用于说明软件的用途、功能特点、运行要求和操作流程。各功能章节按用户能够看到或使用的操作入口、输入区域、提示信息和处理结果进行说明。"
+
     lines.extend(
         [
-            "本手册用于说明软件的用途、功能特点、运行要求和页面操作流程。各功能章节按用户能够看到的页面、入口、按钮、输入项、提示信息和处理结果进行说明。",
+            manual_desc,
             "",
             section_heading(3, "功能特点"),
             "",
         ]
     )
     for i, module in enumerate(modules[:8], start=1):
-        lines.extend([feature_paragraph(module, i), ""])
+        lines.extend([feature_paragraph(module, i, project_type), ""])
     lines.extend([section_heading(4, "系统要求"), "", "| 系统要求 | 最低配置 | 推荐配置 |", "| --- | --- | --- |"])
     for row in system_rows:
         lines.append(f"| {row['item']} | {row['minimum']} | {row['recommended']} |")
+    if project_type in ("web_frontend", "web_fullstack", "unknown"):
+        runtime_note = f"请确保实际运行环境满足以上要求，以保证{software_name}能够正常打开页面、提交操作和展示处理结果。若部署方式、客户端形态或服务器环境与本表不同，应以实际确认的申请表环境字段为准。"
+    elif project_type == "desktop":
+        runtime_note = f"请确保实际运行环境满足以上要求，以保证{software_name}能够正常启动、响应操作和展示处理结果。若部署方式或运行环境与本表不同，应以实际确认的申请表环境字段为准。"
+    elif project_type == "mobile":
+        runtime_note = f"请确保实际运行环境满足以上要求，以保证{software_name}能够正常启动、响应触控操作和展示处理结果。若设备型号或系统版本与本表不同，应以实际确认的申请表环境字段为准。"
+    elif project_type in ("cli",):
+        runtime_note = f"请确保实际运行环境满足以上要求，以保证{software_name}能够正常执行命令、输出结果和返回状态。若终端环境或依赖版本与本表不同，应以实际确认的申请表环境字段为准。"
+    else:
+        runtime_note = f"请确保实际运行环境满足以上要求，以保证{software_name}能够正常运行并完成业务处理。若部署方式或运行环境与本表不同，应以实际确认的申请表环境字段为准。"
+
     lines.extend(
         [
             "",
-            f"请确保实际运行环境满足以上要求，以保证{software_name}能够正常打开页面、提交操作和展示处理结果。若部署方式、客户端形态或服务器环境与本表不同，应以实际确认的申请表环境字段为准。",
+            runtime_note,
             "",
         ]
     )
-    next_index = append_modules_canonical(lines, modules, start_index=5)
+    next_index = append_modules_canonical(lines, modules, start_index=5, project_type=project_type)
     if flow:
-        next_index = append_flow_canonical(lines, software_name, flow, start_index=next_index)
+        next_index = append_flow_canonical(lines, software_name, flow, start_index=next_index, project_type=project_type)
     lines.extend([section_heading(next_index, "常见问题解答"), ""])
     for item in faq_items:
         lines.extend([f"问题：{item['question']}", f"解决方法：{item['answer']}", ""])
@@ -729,8 +890,9 @@ def build_manual_text(
     version: str,
     business: dict[str, Any] | None = None,
 ) -> tuple[str, list[dict[str, Any]], list[dict[str, Any]]]:
+    project_type = str(analysis.get("project_type") or "web_frontend")
     positioning = plain_manual_text(business.get("product_positioning") if business else f"{software_name} {version}是一款基于项目实际功能整理的软件系统。")
-    core_value = plain_manual_text(business.get("core_value") if business else "系统通过清晰的软件界面为用户提供主要业务入口，支持用户完成信息查看、业务处理、数据维护和结果反馈等操作。")
+    core_value = plain_manual_text(business.get("core_value") if business else "系统通过清晰的操作界面为用户提供主要业务入口，支持用户完成信息查看、业务处理、数据维护和结果反馈等操作。")
     users = business.get("target_users") if business else ["业务用户"]
     operation_flow = business.get("operation_flow") if business else []
     manual_sections = business.get("manual_sections") if business else []
@@ -742,20 +904,20 @@ def build_manual_text(
     modules = normalize_manual_modules(business, [])
     records: list[dict[str, Any]] = []
 
-    text = render_manual_canonical(software_name, version, industry, users, positioning, core_value, modules, operation_flow, manual_sections, business)
+    text = render_manual_canonical(software_name, version, industry, users, positioning, core_value, modules, operation_flow, manual_sections, business, project_type)
     records.append({"round": 1, "action": "初稿生成", "issues": manual_quality_issues(text, modules)})
 
-    text = render_manual_canonical(software_name, version, industry, users, positioning, core_value, modules, operation_flow, manual_sections, business)
+    text = render_manual_canonical(software_name, version, industry, users, positioning, core_value, modules, operation_flow, manual_sections, business, project_type)
     records.append({"round": 2, "action": "真实页面字段复核", "issues": manual_quality_issues(text, modules)})
 
-    text = render_manual_canonical(software_name, version, industry, users, positioning, core_value, modules, operation_flow, manual_sections, business)
+    text = render_manual_canonical(software_name, version, industry, users, positioning, core_value, modules, operation_flow, manual_sections, business, project_type)
     records.append({"round": 3, "action": "制式模板和 AI 味复核", "issues": manual_quality_issues(text, modules)})
 
     for round_no in range(4, 7):
         issues = records[-1]["issues"]
         if not issues:
             break
-        text = render_manual_canonical(software_name, version, industry, users, positioning, core_value, modules, operation_flow, manual_sections, business)
+        text = render_manual_canonical(software_name, version, industry, users, positioning, core_value, modules, operation_flow, manual_sections, business, project_type)
         records.append(
             {
                 "round": round_no,

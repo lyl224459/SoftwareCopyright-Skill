@@ -7,54 +7,82 @@ import argparse
 from pathlib import Path
 from typing import Any
 
-from common import COPYRIGHT_CODE_EXTS, FRONTEND_EXTS, ensure_dir, is_known_config_file, iter_project_files, read_json, rel, write_json
+from common import BACKEND_EXTS, COPYRIGHT_CODE_EXTS, FRONTEND_EXTS, ensure_dir, is_known_config_file, iter_project_files, read_json, rel, write_json
 from extract_code_material import LINES_PER_PAGE, SPLIT_THRESHOLD_PAGES, category_weight, should_skip_file
 
 
 DEFAULT_MAX_FILES = 0
 
 
-def evidence_for(path: Path, project: Path) -> str:
-    priority, _ = category_weight(path, project)
+def evidence_for(path: Path, project: Path, project_type: str = "unknown") -> str:
+    priority, _ = category_weight(path, project, project_type)
+    suffix = path.suffix.lower()
     if priority == 0:
         return "入口文件证据"
-    if priority == 10:
+    if priority <= 10:
+        if project_type in ("web_backend", "cli"):
+            return "接口或命令入口证据"
+        if project_type == "desktop":
+            return "窗口或界面入口证据"
+        if project_type == "mobile":
+            return "屏幕入口证据"
         return "路由文件证据"
-    if priority == 20:
+    if priority <= 20:
+        if project_type in ("web_backend",):
+            return "业务服务证据"
+        if project_type == "cli":
+            return "命令实现证据"
+        if project_type == "desktop":
+            return "窗口或面板证据"
+        if project_type == "mobile":
+            return "屏幕或功能页面证据"
         return "页面文件证据"
-    if priority == 30:
+    if priority <= 30:
+        if project_type in ("web_backend", "cli"):
+            return "数据模型或接口证据"
+        if project_type in ("desktop", "mobile"):
+            return "数据或状态管理证据"
         return "数据交互文件证据"
-    if priority == 40:
-        return "状态或数据文件证据"
-    if priority == 50:
+    if priority <= 40:
+        return "通用能力或工具证据"
+    if priority <= 60:
+        if suffix not in FRONTEND_EXTS:
+            return "补充源码证据"
         return "页面组成文件证据"
-    if priority == 60:
-        return "通用能力文件证据"
-    if priority == 90:
+    if priority <= 90:
         return "样式文件证据"
-    if path.suffix.lower() not in FRONTEND_EXTS:
+    if suffix not in FRONTEND_EXTS:
         return "补充源码证据"
     return "普通源码文件"
 
 
-def build_candidates(project: Path) -> list[dict[str, Any]]:
+def build_candidates(project: Path, project_type: str = "unknown") -> list[dict[str, Any]]:
     files = [p for p in iter_project_files(project, COPYRIGHT_CODE_EXTS) if not should_skip_file(p) and not is_known_config_file(p)]
-    files.sort(key=lambda p: category_weight(p, project))
+    files.sort(key=lambda p: category_weight(p, project, project_type))
     candidates: list[dict[str, Any]] = []
     for path in files:
         try:
             line_count = len(path.read_text(encoding="utf-8", errors="replace").splitlines())
         except Exception:
             line_count = 0
-        priority, _ = category_weight(path, project)
+        priority, _ = category_weight(path, project, project_type)
+        suffix = path.suffix.lower()
+        if project_type in ("web_frontend", "web_fullstack", "unknown"):
+            tier = "frontend" if suffix in FRONTEND_EXTS else "supplement"
+        elif suffix in BACKEND_EXTS:
+            tier = "backend"
+        elif suffix in FRONTEND_EXTS:
+            tier = "frontend"
+        else:
+            tier = "supplement"
         candidates.append(
             {
                 "path": rel(path, project),
                 "selected": False,
                 "line_count": line_count,
                 "priority": priority,
-                "selection_tier": "frontend" if path.suffix.lower() in FRONTEND_EXTS else "supplement",
-                "evidence": evidence_for(path, project),
+                "selection_tier": tier,
+                "evidence": evidence_for(path, project, project_type),
                 "model_reason": "",
             }
         )
@@ -132,7 +160,15 @@ def main() -> None:
         raise SystemExit(f"Analysis JSON not found: {args.analysis}")
 
     out_dir = ensure_dir(Path(args.out_dir))
-    candidates = build_candidates(project)
+    # Read project_type from analysis if available
+    project_type = "unknown"
+    if args.analysis:
+        try:
+            analysis_data = read_json(Path(args.analysis))
+            project_type = str(analysis_data.get("project_type") or "unknown")
+        except Exception:
+            pass
+    candidates = build_candidates(project, project_type)
     target_lines = max(1, args.target_pages) * max(1, args.lines_per_page)
     if args.max_files:
         candidates = candidates[: args.max_files]
