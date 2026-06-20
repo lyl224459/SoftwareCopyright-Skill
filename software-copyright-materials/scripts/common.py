@@ -6,6 +6,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import sys
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -312,6 +313,21 @@ def count_text_lines(path: Path, skip_blank: bool = True) -> int:
 
 
 CONFIG_EXT_PATTERNS = {".csproj", ".fsproj", ".vbproj", ".sln", ".slnx"}
+
+
+def configure_utf8_stdio() -> None:
+    """Keep Chinese CLI output readable in Codex/PowerShell when possible."""
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if callable(reconfigure):
+            try:
+                reconfigure(encoding="utf-8", errors="replace")
+            except Exception:
+                pass
+
+
+configure_utf8_stdio()
+
 
 def is_known_config_file(path: Path) -> bool:
     """Return True for well-known config files that shouldn't count as source code."""

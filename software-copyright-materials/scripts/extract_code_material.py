@@ -185,7 +185,7 @@ def load_selected_files(project: Path, selection_path: Path | None) -> list[dict
         raise SystemExit(
             "STOP_FOR_USER\n"
             "NEXT_ACTION: 代码文件选择尚未确认。请先确认或修改 草稿/代码文件选择.json，"
-            "再运行 `python3 <SKILL_DIR>/scripts/confirm_stage.py --workdir 软件著作权申请资料 --stage code-selection --note \"<用户确认内容>\"`。"
+            "再运行 `<python> <skill-dir>/scripts/confirm_stage.py --workdir 软件著作权申请资料 --stage code-selection --note \"<用户确认内容>\"`。"
         )
     items = data.get("files") if isinstance(data, dict) else data
     if not isinstance(items, list):
@@ -229,13 +229,13 @@ def collect_code_lines(project: Path, selection_path: Path | None) -> tuple[list
         all_lines.extend(selected_lines)
         all_lines.append("")
         end = len(all_lines)
-        source_end_line = len(source_lines)
+        source_last_line = len(source_lines)
         manifest_files.append(
             {
                 "path": rel(path, project),
                 "source_line_count": len(source_lines),
-                "selected_line_start": 1,
-                "selected_line_end": source_end_line,
+                "selected_first_line": 1,
+                "selected_last_line": source_last_line,
                 "selected_line_count": len(selected_lines),
                 "material_line_start": start,
                 "material_line_end": end,
@@ -281,7 +281,7 @@ def write_manifest_md(path: Path, manifest: dict[str, Any]) -> None:
     for item in manifest["files"]:
         lines.append(
             f"| `{item['path']}` | {item['source_line_count']} | "
-            f"{item['selected_line_start']}-{item['selected_line_end']} | "
+            f"{item['selected_first_line']}-{item['selected_last_line']} | "
             f"{item['selected_line_count']} | "
             f"{item['material_line_start']}-{item['material_line_end']} |"
         )

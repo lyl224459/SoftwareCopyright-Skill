@@ -240,6 +240,27 @@ def manual_quality_issues(text: str, modules: list[dict[str, Any]]) -> list[str]
     return issues
 
 
+def classified_manual_quality_records(
+    text: str,
+    modules: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    section_issues: list[str] = []
+    module_issues: list[str] = []
+    style_issues: list[str] = []
+    for issue in manual_quality_issues(text, modules):
+        if issue.startswith(("缺少通用手册章节", "章节标题", "相关文档", "截图预留", "正文仍存在")):
+            section_issues.append(issue)
+        elif issue.startswith(("缺少核心模块章节", "模块内容偏薄")):
+            module_issues.append(issue)
+        else:
+            style_issues.append(issue)
+    return [
+        {"round": 1, "action": "章节完整性检查", "issues": section_issues},
+        {"round": 2, "action": "项目流程和模块细节检查", "issues": module_issues},
+        {"round": 3, "action": "制式表达和 AI 味检查", "issues": style_issues},
+    ]
+
+
 def clean_field(value: str, default: str) -> str:
     text = plain_manual_text(str(value or "")).strip()
     if not text or text == "待用户确认":
@@ -902,30 +923,9 @@ def build_manual_text(
     elif not positioning.endswith("。"):
         positioning += "。"
     modules = normalize_manual_modules(business, [])
-    records: list[dict[str, Any]] = []
 
     text = render_manual_canonical(software_name, version, industry, users, positioning, core_value, modules, operation_flow, manual_sections, business, project_type)
-    records.append({"round": 1, "action": "初稿生成", "issues": manual_quality_issues(text, modules)})
-
-    text = render_manual_canonical(software_name, version, industry, users, positioning, core_value, modules, operation_flow, manual_sections, business, project_type)
-    records.append({"round": 2, "action": "真实页面字段复核", "issues": manual_quality_issues(text, modules)})
-
-    text = render_manual_canonical(software_name, version, industry, users, positioning, core_value, modules, operation_flow, manual_sections, business, project_type)
-    records.append({"round": 3, "action": "制式模板和 AI 味复核", "issues": manual_quality_issues(text, modules)})
-
-    for round_no in range(4, 7):
-        issues = records[-1]["issues"]
-        if not issues:
-            break
-        text = render_manual_canonical(software_name, version, industry, users, positioning, core_value, modules, operation_flow, manual_sections, business, project_type)
-        records.append(
-            {
-                "round": round_no,
-                "action": "复核仍需模型回到业务理解补写",
-                "issues": manual_quality_issues(text, modules),
-            }
-        )
-        break
+    records = classified_manual_quality_records(text, modules)
     return text, records, modules
 
 
@@ -964,7 +964,7 @@ def require_confirmed_business(business: dict[str, Any] | None) -> None:
         raise SystemExit(
             "STOP_FOR_USER\n"
             "NEXT_ACTION: 业务理解尚未确认。请先确认 草稿/业务理解.md，"
-            "再运行 `python3 <SKILL_DIR>/scripts/confirm_stage.py --workdir 软件著作权申请资料 --stage business --note \"<用户确认内容>\"`。"
+            "再运行 `<python> <skill-dir>/scripts/confirm_stage.py --workdir 软件著作权申请资料 --stage business --note \"<用户确认内容>\"`。"
         )
 
 
@@ -987,7 +987,7 @@ def main() -> None:
     print(f"OK manual self-review: {out_dir / '操作手册自检记录.md'}")
     for record in records:
         print(f"Review round {record['round']}: {record['action']} issues={len(record['issues'])}")
-    if records[-1]["issues"]:
+    if any(record["issues"] for record in records):
         print("STOP_FOR_USER")
         print("NEXT_ACTION: 操作手册自检仍有问题。请回到业务理解阶段补全 manual_modules 中的真实页面内容、操作规则和结果反馈后再重新生成。")
         raise SystemExit(1)

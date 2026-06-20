@@ -1,6 +1,6 @@
 # Software Copyright Materials Skill
 
-从真实项目生成中国软件著作权申请资料（Word/TXT）的 AI Skill / 插件。支持 Codex 和 Claude Code。
+从真实项目生成中国软件著作权申请资料（Word/TXT）的 AI Skill / 插件。Codex 优先，兼容本地代码助手工作流。
 
 > **本项目完全免费。请不要相信任何使用本项目包装出来的付费服务。**
 
@@ -27,15 +27,24 @@
 
 ## 快速开始
 
-```bash
-# 1. 安装 Python 依赖
-python3 -m pip install python-docx
+Windows PowerShell：
 
-# 2. 克隆仓库
+```powershell
+python -m pip install python-docx
 git clone https://github.com/lyl224459/SoftwareCopyright-Skill.git
+New-Item -ItemType Directory -Force "$env:USERPROFILE\.codex\skills" | Out-Null
+Copy-Item -Recurse -Force ".\SoftwareCopyright-Skill\software-copyright-materials" "$env:USERPROFILE\.codex\skills\"
+```
 
-# 3. Claude Code: 作为插件加载
-claude --plugin-dir ./SoftwareCopyright-Skill
+如果 `python` 打开 Microsoft Store，可改用 `py -3 -m pip install python-docx`。
+
+macOS/Linux/WSL：
+
+```bash
+python3 -m pip install python-docx
+git clone https://github.com/lyl224459/SoftwareCopyright-Skill.git
+mkdir -p ~/.codex/skills
+cp -R ./SoftwareCopyright-Skill/software-copyright-materials ~/.codex/skills/
 ```
 
 在代码助手中打开你的项目，说：
@@ -51,15 +60,30 @@ claude --plugin-dir ./SoftwareCopyright-Skill
 每次 [Release](https://github.com/lyl224459/SoftwareCopyright-Skill/releases) 自动打包为 `tar.gz` 和 `zip`：
 
 ```bash
-# 下载指定版本的 Release 包（替换 v1.2 为最新版本）
-wget https://github.com/lyl224459/SoftwareCopyright-Skill/releases/download/v1.2/software-copyright-materials-v1.2.tar.gz
-tar xzf software-copyright-materials-v1.2.tar.gz
+# 下载 v1.3 Release 包
+wget https://github.com/lyl224459/SoftwareCopyright-Skill/releases/download/v1.3/software-copyright-materials-v1.3.tar.gz
+tar xzf software-copyright-materials-v1.3.tar.gz
 
-# Claude Code 直接加载
-claude --plugin-dir ./software-copyright-materials-v1.2
+# Codex: 复制 skill 到 Codex skills 目录
+mkdir -p ~/.codex/skills
+cp -R ./software-copyright-materials-v1.3/software-copyright-materials ~/.codex/skills/
+
+# Claude Code: 直接加载
+claude --plugin-dir ./software-copyright-materials-v1.3
 ```
 
 Release 包含 `software-copyright-materials/`、`skills/`、`docs/`、`plugin.json` 和 `README`，解压即用。
+
+## v1.3 与 v1.2 的区别
+
+v1.3 是面向 Codex 使用体验和 Windows 可靠性的兼容增强版本：
+
+- Skill 主入口改为 Codex 兼容 frontmatter，主 `SKILL.md` 更短，细节规则拆到 references，减少上下文占用。
+- 环境检查不再依赖 bash，改为 Python 原生检查 Python、pandoc、.NET SDK 和 DOCX CLI；中文输出默认做 UTF-8 处理。
+- Windows PowerShell 和 macOS/Linux/WSL 安装命令分开展示，README 与安装指南都提供可直接复制的命令块。
+- 缺少 `python-docx` 和 `pandoc` 时，操作手册的纯 OOXML 兜底 DOCX 现在支持简单 Markdown 表格。
+- 截图方式保留原有取值，并新增 Codex 友好的 `browser-tool` 别名。
+- 代码材料选择规则收敛为按完整文件复制，`代码文件选择.json` 以 `selected` 和 `model_reason` 为有效字段。
 
 ## 文档
 

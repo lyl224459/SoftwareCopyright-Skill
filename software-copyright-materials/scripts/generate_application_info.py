@@ -926,7 +926,7 @@ def require_confirmed_business(business: dict[str, Any] | None) -> None:
         raise SystemExit(
             "STOP_FOR_USER\n"
             "NEXT_ACTION: 业务理解尚未确认。请先确认 草稿/业务理解.md，"
-            "再运行 `python3 <SKILL_DIR>/scripts/confirm_stage.py --workdir 软件著作权申请资料 --stage business --note \"<用户确认内容>\"`。"
+            "再运行 `<python> <skill-dir>/scripts/confirm_stage.py --workdir 软件著作权申请资料 --stage business --note \"<用户确认内容>\"`。"
         )
 
 

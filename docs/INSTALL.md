@@ -7,13 +7,27 @@
 - **支持 Skill/Plugin 的代码助手**（Codex 或 Claude Code）
 - 可读取的项目源码（在代码助手中打开你的项目目录）
 
+Windows PowerShell：
+
+```powershell
+python -m pip install python-docx
+```
+
+如果 `python` 打开 Microsoft Store，可改用：
+
+```powershell
+py -3 -m pip install python-docx
+```
+
+macOS/Linux/WSL：
+
 ```bash
 python3 -m pip install python-docx
 ```
 
 ### 可选
 - **.NET SDK 8.0+**：完整 DOCX OpenXML 校验（无 .NET SDK 也可使用基础 DOCX 生成）
-- **Chrome DevTools MCP**：自动截取网页截图
+- **Codex 浏览器工具 / Chrome DevTools MCP**：自动截取网页截图
 - **Codex Computer Use**：桌面应用截图
 
 ## 安装方式
@@ -29,12 +43,31 @@ cd SoftwareCopyright-Skill
 
 ### Codex
 
+Windows PowerShell：
+
+```powershell
+New-Item -ItemType Directory -Force "$env:USERPROFILE\.codex\skills" | Out-Null
+Copy-Item -Recurse -Force ".\software-copyright-materials" "$env:USERPROFILE\.codex\skills\"
+```
+
+macOS/Linux/WSL：
+
 ```bash
 mkdir -p ~/.codex/skills
 cp -R software-copyright-materials ~/.codex/skills/
 ```
 
 也可复制到项目的 `.codex/skills/`：
+
+Windows PowerShell：
+
+```powershell
+$PROJECT_DIR = "<你的项目目录>"
+New-Item -ItemType Directory -Force "$PROJECT_DIR\.codex\skills" | Out-Null
+Copy-Item -Recurse -Force ".\software-copyright-materials" "$PROJECT_DIR\.codex\skills\"
+```
+
+macOS/Linux/WSL：
 
 ```bash
 PROJECT_DIR="<你的项目目录>"
@@ -87,3 +120,17 @@ claude --plugin-dir "<SoftwareCopyright-Skill 仓库路径>"
 - 材料生成路径
 
 如果完整 DOCX 环境缺失，会停下来让你选择安装完整环境或使用基础 DOCX 兜底。
+
+完整 DOCX 环境可按平台初始化：
+
+PowerShell：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File software-copyright-materials/vendor/docx-toolkit/scripts/setup.ps1 -Minimal
+```
+
+macOS/Linux/WSL：
+
+```bash
+bash software-copyright-materials/vendor/docx-toolkit/scripts/setup.sh --minimal
+```

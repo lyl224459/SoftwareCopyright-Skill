@@ -935,7 +935,7 @@ def check_environment_gate(out: Path) -> None:
         raise SystemExit(
             "STOP_FOR_USER\n"
             "NEXT_ACTION: 完整 DOCX 环境未确认。请先让用户选择安装完整环境或使用基础 DOCX 兜底继续，"
-            "然后运行 `python3 <SKILL_DIR>/scripts/confirm_stage.py --workdir 软件著作权申请资料 --stage environment --note \"<用户选择>\"`。"
+            "然后运行 `<python> <skill-dir>/scripts/confirm_stage.py --workdir 软件著作权申请资料 --stage environment --note \"<用户选择>\"`。"
         )
 
 

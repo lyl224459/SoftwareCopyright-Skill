@@ -84,6 +84,8 @@ def parse_screenshot_method(method: str, note: str) -> str:
     value = (method or note or "").lower()
     if any(key in value for key in ("skip", "no-screenshot", "none", "不截图", "跳过", "暂不", "先不", "不要截图", "无需截图")):
         return "skip"
+    if any(key in value for key in ("browser-tool", "in-app browser", "browser automation", "playwright", "浏览器工具", "浏览器自动化")):
+        return "browser-tool"
     if any(key in value for key in ("chrome", "devtools", "mcp")):
         return "chrome-devtools"
     if any(key in value for key in ("computer", "use", "电脑", "桌面")):
@@ -92,7 +94,7 @@ def parse_screenshot_method(method: str, note: str) -> str:
         return "user-supplied"
     raise SystemExit(
         "STOP_FOR_USER\n"
-        "NEXT_ACTION: 请明确截图方式：chrome-devtools、computer-use、user-supplied 或 skip。"
+        "NEXT_ACTION: 请明确截图方式：browser-tool、chrome-devtools、computer-use、user-supplied 或 skip。"
     )
 
 
@@ -170,7 +172,7 @@ def main() -> None:
     parser.add_argument("--note", default="用户已确认")
     parser.add_argument(
         "--method",
-        choices=["chrome-devtools", "computer-use", "user-supplied", "skip"],
+        choices=["browser-tool", "chrome-devtools", "computer-use", "user-supplied", "skip"],
         help="Screenshot capture method when --stage screenshot-method",
     )
     args = parser.parse_args()

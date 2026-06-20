@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any
 
 from common import ensure_dir, read_json, safe_filename
+from check_environment import command_version, run_docx_env
 
 try:
     from docx import Document
@@ -341,6 +342,113 @@ def paragraph_xml(text: str, font: str = "SimSun", size_half_points: int = 21, a
     )
 
 
+def inline_markdown_text(text: str) -> str:
+    text = strip_markdown_links(text.strip())
+    text = re.sub(r"`([^`]+)`", r"\1", text)
+    text = re.sub(r"(\*\*|__)(.*?)\1", r"\2", text)
+    text = re.sub(r"(?<!\*)\*([^*]+)\*(?!\*)", r"\1", text)
+    text = re.sub(r"(?<!_)_([^_]+)_(?!_)", r"\1", text)
+    return text.replace(r"\|", "|")
+
+
+def is_markdown_table_separator(line: str) -> bool:
+    cells = parse_table_line(line)
+    return bool(cells) and all(re.fullmatch(r":?-{3,}:?", cell.strip()) for cell in cells)
+
+
+def is_markdown_table_row(line: str) -> bool:
+    stripped = line.strip()
+    return "|" in stripped and not stripped.startswith("#") and not is_markdown_table_separator(stripped)
+
+
+def normalize_table_row(cells: list[str], width: int) -> list[str] | None:
+    if len(cells) != width:
+        return None
+    return [inline_markdown_text(cell) for cell in cells]
+
+
+def collect_markdown_table(lines: list[str], start: int) -> tuple[list[list[str]] | None, int]:
+    if start + 1 >= len(lines):
+        return None, start
+    header_line = lines[start].strip()
+    separator_line = lines[start + 1].strip()
+    if not is_markdown_table_row(header_line) or not is_markdown_table_separator(separator_line):
+        return None, start
+
+    header = parse_table_line(header_line)
+    width = len(header)
+    if width == 0:
+        return None, start
+
+    rows: list[list[str]] = []
+    normalized_header = normalize_table_row(header, width)
+    if normalized_header is None:
+        return None, start
+    rows.append(normalized_header)
+
+    index = start + 2
+    while index < len(lines):
+        stripped = lines[index].strip()
+        if not stripped or stripped.startswith("```") or not is_markdown_table_row(stripped):
+            break
+        parsed = normalize_table_row(parse_table_line(stripped), width)
+        if parsed is None:
+            return None, start
+        rows.append(parsed)
+        index += 1
+
+    if len(rows) < 2:
+        return None, start
+    return rows, index
+
+
+def table_cell_xml(text: str, is_header: bool = False) -> str:
+    escaped = html.escape(text)
+    bold_xml = "<w:b/>" if is_header else ""
+    return (
+        "<w:tc>"
+        '<w:tcPr><w:tcMar><w:top w:w="80" w:type="dxa"/><w:left w:w="80" w:type="dxa"/>'
+        '<w:bottom w:w="80" w:type="dxa"/><w:right w:w="80" w:type="dxa"/></w:tcMar></w:tcPr>'
+        "<w:p>"
+        '<w:pPr><w:spacing w:after="0" w:line="240" w:lineRule="exact"/></w:pPr>'
+        "<w:r>"
+        f'<w:rPr><w:rFonts w:ascii="SimSun" w:hAnsi="SimSun" w:eastAsia="SimSun"/>'
+        f'<w:color w:val="{BLACK_RGB}"/>{bold_xml}<w:sz w:val="21"/><w:szCs w:val="21"/></w:rPr>'
+        f'<w:t xml:space="preserve">{escaped}</w:t>'
+        "</w:r>"
+        "</w:p>"
+        "</w:tc>"
+    )
+
+
+def table_xml(rows: list[list[str]]) -> str:
+    if not rows:
+        return ""
+    grid_cols = "".join('<w:gridCol w:w="2400"/>' for _ in rows[0])
+    row_xml = []
+    for row_index, row in enumerate(rows):
+        cells = "".join(table_cell_xml(cell, is_header=row_index == 0) for cell in row)
+        row_xml.append(f"<w:tr>{cells}</w:tr>")
+    return (
+        "<w:tbl>"
+        "<w:tblPr>"
+        '<w:tblW w:w="5000" w:type="pct"/>'
+        '<w:tblLook w:firstRow="1" w:lastRow="0" w:firstColumn="0" w:lastColumn="0" w:noHBand="0" w:noVBand="1"/>'
+        "<w:tblBorders>"
+        '<w:top w:val="single" w:sz="4" w:space="0" w:color="000000"/>'
+        '<w:left w:val="single" w:sz="4" w:space="0" w:color="000000"/>'
+        '<w:bottom w:val="single" w:sz="4" w:space="0" w:color="000000"/>'
+        '<w:right w:val="single" w:sz="4" w:space="0" w:color="000000"/>'
+        '<w:insideH w:val="single" w:sz="4" w:space="0" w:color="000000"/>'
+        '<w:insideV w:val="single" w:sz="4" w:space="0" w:color="000000"/>'
+        "</w:tblBorders>"
+        "</w:tblPr>"
+        f"<w:tblGrid>{grid_cols}</w:tblGrid>"
+        f"{''.join(row_xml)}"
+        "</w:tbl>"
+    )
+
+
 def page_break_xml() -> str:
     return '<w:p><w:r><w:br w:type="page"/></w:r></w:p>'
 
@@ -569,6 +677,55 @@ def build_code_docx_ooxml(md_path: Path, out_path: Path, software_name: str, ver
     minimal_docx(out_path, "\n".join(body), header_text=f"{software_name} {version}", start_page=start_page_no)
 
 
+def manual_docx_ooxml_body(md_path: Path) -> str:
+    original_text = md_path.read_text(encoding="utf-8")
+    text = re.sub(r"```text\s*\nSTOP_FOR_USER\n.*?```", "", original_text, flags=re.S)
+    text = re.sub(r"<!--[^>]*截图[^>]*-->", "【截图预留：请在此处插入当前功能页面或操作结果截图。】", text)
+    text = strip_markdown_links(text)
+    body: list[str] = []
+    in_fence = False
+    lines = text.splitlines()
+    index = 0
+    while index < len(lines):
+        raw_line = lines[index]
+        stripped = raw_line.strip()
+        if stripped.startswith("```"):
+            in_fence = not in_fence
+            index += 1
+            continue
+        if not stripped:
+            body.append(paragraph_xml(" "))
+            index += 1
+            continue
+        if not in_fence and re.match(r"^\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?$", stripped):
+            index += 1
+            continue
+        if not in_fence:
+            table, next_index = collect_markdown_table(lines, index)
+            if table is not None:
+                body.append(table_xml(table))
+                index = next_index
+                continue
+        if stripped.startswith("#"):
+            heading = re.sub(r"^#+\s*", "", stripped)
+            body.append(paragraph_xml(heading, size_half_points=24, line_twips=360))
+            index += 1
+            continue
+        stripped = re.sub(r"^[-*+]\s+", "", stripped)
+        stripped = re.sub(r"^\d+\.\s+", "", stripped)
+        body.append(paragraph_xml(inline_markdown_text(stripped)))
+        index += 1
+    return "\n".join(body)
+
+
+def build_manual_docx_ooxml(md_path: Path, out_path: Path, software_name: str, version: str) -> None:
+    minimal_docx(
+        out_path,
+        manual_docx_ooxml_body(md_path),
+        header_text=f"{software_name} {version}",
+    )
+
+
 def add_markdown_table(document: Any, rows: list[list[str]]) -> None:
     if not rows:
         return
@@ -705,9 +862,11 @@ def build_code_docx(md_path: Path, out_path: Path, software_name: str, version: 
 def build_manual_docx(md_path: Path, out_path: Path, base_dir: Path, software_name: str, version: str) -> None:
     if DOCX_AVAILABLE:
         build_manual_docx_python(md_path, out_path, base_dir, software_name, version)
-    else:
+    elif pandoc_available():
         build_with_pandoc(md_path, out_path, code_mode=False)
         add_header_to_existing_docx(out_path, f"{software_name} {version}")
+    else:
+        build_manual_docx_ooxml(md_path, out_path, software_name, version)
     normalize_docx_text_color(out_path)
 
 
@@ -721,21 +880,22 @@ def run_command(command: list[str], cwd: Path | None = None, timeout: int = 60) 
 
 def docx_checks(skill_dir: Path, outputs: list[Path]) -> list[str]:
     notes: list[str] = []
-    env_script = skill_dir / "vendor/docx-toolkit/scripts/env_check.sh"
-    preview_script = skill_dir / "vendor/docx-toolkit/scripts/docx_preview.sh"
-    if env_script.exists():
-        code, output = run_command(["bash", str(env_script)], cwd=env_script.parent.parent, timeout=30)
-        status = "READY" if code == 0 else "NOT READY"
-        first_lines = "\n".join(output.splitlines()[:12])
-        notes.append(f"DOCX env: {status}\n\n```text\n{first_lines}\n```")
-    else:
-        notes.append("DOCX env: vendor script missing")
+    docx_ready, docx_output, _probe = run_docx_env(skill_dir)
+    status = "READY" if docx_ready else "NOT READY"
+    first_lines = "\n".join(docx_output.splitlines()[:12])
+    notes.append(f"DOCX env: {status}\n\n```text\n{first_lines}\n```")
 
-    if preview_script.exists():
+    pandoc_ok, pandoc_version = command_version(["pandoc", "--version"])
+    if not pandoc_ok:
         for out in outputs:
-            code, output = run_command(["bash", str(preview_script), str(out)], timeout=45)
-            first_lines = "\n".join(output.splitlines()[:8])
-            notes.append(f"Preview {out.name}: exit={code}\n\n```text\n{first_lines}\n```")
+            notes.append(f"Preview {out.name}: skipped, pandoc not available ({pandoc_version})")
+        return notes
+
+    for out in outputs:
+        code, output = run_command(["pandoc", "-f", "docx", "-t", "plain", str(out)], timeout=45)
+        first_lines = "\n".join(output.splitlines()[:8])
+        label = "exit" if code == 0 else "failed exit"
+        notes.append(f"Preview {out.name}: {label}={code}\n\n```text\n{first_lines}\n```")
     return notes
 
 
